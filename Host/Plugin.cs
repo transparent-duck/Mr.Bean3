@@ -132,13 +132,13 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (!open) return;
         ImGui.SetNextWindowSize(new(480, 100), ImGuiCond.FirstUseEver);
-        if (ImGui.Begin(ProductIdentity.DisplayName, ref open, ImGuiWindowFlags.AlwaysAutoResize))
+        if (ImGui.Begin("你是壞孩子###Mr.Bean3", ref open, ImGuiWindowFlags.AlwaysAutoResize))
         {
             ImGui.BeginDisabled(pilot != null || !RegionAllowed());
             if (ImGui.Button("開始")) Start();
             ImGui.EndDisabled();
             ImGui.SameLine();
-            if (ImGui.Button("關閉")) { Stop("cancelled"); open = false; }
+            if (ImGui.Button("停止")) Stop("cancelled");
             ImGui.TextUnformatted($"關卡總數: {statistics.TotalRuns}");
             ImGui.TextUnformatted($"奪冠: {statistics.Wins}");
             ImGui.TextUnformatted($"失敗: {statistics.Failures}");
