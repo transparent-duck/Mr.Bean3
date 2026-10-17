@@ -1,0 +1,1620 @@
+{
+  "schemaVersion": 1,
+  "course": "CrownMountain",
+  "gameBuild": 14006085,
+  "trainingIndices": [
+    1,
+    8,
+    16,
+    18
+  ],
+  "heldoutIndices": [
+    20,
+    27
+  ],
+  "states": 786432,
+  "factors": [
+    {
+      "name": "29795:[-6.782, 36.106, 136.908]",
+      "count": 2
+    },
+    {
+      "name": "29795:[3.218, 36.302, 135.092]",
+      "count": 2
+    },
+    {
+      "name": "34796:[-10.0, 29.951, 170.0]",
+      "count": 2
+    },
+    {
+      "name": "34796:[-10.0, 31.389, 156.0]",
+      "count": 2
+    },
+    {
+      "name": "34796:[2.0, 31.39, 156.0]",
+      "count": 2
+    },
+    {
+      "name": "34796:[4.343, 29.37, 175.657]",
+      "count": 2
+    },
+    {
+      "name": "34801:[-12.0, 14.541, 229.3]",
+      "count": 8
+    },
+    {
+      "name": "34801:[-12.0, 22.521, 198.7]",
+      "count": 4
+    },
+    {
+      "name": "34801:[-12.0, 33.469, 145.7]",
+      "count": 4
+    },
+    {
+      "name": "34801:[-12.0, 9.387, 251.0]",
+      "count": 8
+    },
+    {
+      "name": "34802:z=225.3",
+      "count": 3
+    },
+    {
+      "name": "34802:z=267.5",
+      "count": 2
+    },
+    {
+      "name": "34812:alternating-lane-groups",
+      "count": 2
+    }
+  ],
+  "profiles": [
+    {
+      "action": 29795,
+      "factor": 0,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -6.782,
+            36.106,
+            136.908
+          ],
+          2.042
+        ],
+        [
+          [
+            -3.218,
+            36.302,
+            135.092
+          ],
+          -1.0996
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.081058333333333
+      ],
+      "offsets": [
+        0.0,
+        2.5468020833333336
+      ],
+      "first": 0.4085833881578943,
+      "clockError": 0.11216820958646234,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 3,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 29795,
+      "factor": 1,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            3.218,
+            36.302,
+            135.092
+          ],
+          1.0995
+        ],
+        [
+          [
+            6.782,
+            35.91,
+            136.908
+          ],
+          -2.0421
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.081058333333333
+      ],
+      "offsets": [
+        0.0,
+        2.5456145833333337
+      ],
+      "first": 0.4091771381578938,
+      "clockError": 0.11327088815789088,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 3,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34796,
+      "factor": 2,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -10.0,
+            29.951,
+            170.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            -2.0,
+            29.951,
+            170.0
+          ],
+          -1.5705
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.081095238095237
+      ],
+      "offsets": [
+        0.0,
+        2.547041666666667
+      ],
+      "first": 0.40989484649122687,
+      "clockError": 0.10469841791979473,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34796,
+      "factor": 3,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -10.0,
+            31.389,
+            156.0
+          ],
+          0.7854
+        ],
+        [
+          [
+            -4.343,
+            30.808,
+            161.657
+          ],
+          -2.3563
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.080886904761904
+      ],
+      "offsets": [
+        0.0,
+        2.5481354166666668
+      ],
+      "first": 0.40898338815789337,
+      "clockError": 0.11123487625312822,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34796,
+      "factor": 4,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            2.0,
+            31.39,
+            156.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            10.0,
+            31.389,
+            156.0
+          ],
+          -1.5705
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.080886904761904
+      ],
+      "offsets": [
+        0.0,
+        2.5481354166666668
+      ],
+      "first": 0.40898338815789337,
+      "clockError": 0.11123487625312822,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34796,
+      "factor": 5,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            4.343,
+            29.37,
+            175.657
+          ],
+          2.3562
+        ],
+        [
+          [
+            10.0,
+            29.951,
+            170.0
+          ],
+          0.7854
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        5.078107142857142,
+        5.080886904761904
+      ],
+      "offsets": [
+        0.0,
+        2.5481354166666668
+      ],
+      "first": 0.40898338815789337,
+      "clockError": 0.11123487625312822,
+      "before": 0.397,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34801,
+      "factor": 6,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -12.0,
+            14.541,
+            229.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            14.541,
+            229.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            14.541,
+            229.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            14.541,
+            229.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            -12.0,
+            14.971,
+            221.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            14.971,
+            221.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            14.971,
+            221.3
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            14.971,
+            221.3
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        10.994160714285714,
+        11.056087500000002
+      ],
+      "offsets": [
+        0.0,
+        1.3744583333333333,
+        2.7608355734767027,
+        4.1348668234767025,
+        5.5111785794290835,
+        6.897918162762417,
+        8.275816447076142,
+        9.656253947076143
+      ],
+      "first": 0.15144067333250325,
+      "clockError": 0.1085771918108634,
+      "before": 0.191,
+      "geometry": {
+        "shape": "circle",
+        "radius": 6,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34801,
+      "factor": 7,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -12.0,
+            22.521,
+            198.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            22.521,
+            198.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            22.521,
+            198.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            22.521,
+            198.7
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        6.011552795031053,
+        6.016253571428572
+      ],
+      "offsets": [
+        0.0,
+        1.3740128493788815,
+        2.749708533902691,
+        4.134890676759834
+      ],
+      "first": 0.16000288884575245,
+      "clockError": 0.0819930156573461,
+      "before": 0.626,
+      "geometry": {
+        "shape": "circle",
+        "radius": 6,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34801,
+      "factor": 8,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -12.0,
+            33.469,
+            145.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            33.469,
+            145.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            33.469,
+            145.7
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            33.469,
+            145.7
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        6.011552795031053,
+        6.016596428571429
+      ],
+      "offsets": [
+        0.0,
+        1.3770128493788816,
+        2.752751391045548,
+        4.134862105331263
+      ],
+      "first": 0.15695735313146705,
+      "clockError": 0.07833154438405807,
+      "before": 0.626,
+      "geometry": {
+        "shape": "circle",
+        "radius": 6,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34801,
+      "factor": 9,
+      "phaseMode": "pose",
+      "cycle": [
+        [
+          [
+            -12.0,
+            9.387,
+            251.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            9.387,
+            251.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            9.387,
+            251.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            9.387,
+            251.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            -12.0,
+            11.745,
+            243.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            -4.0,
+            11.745,
+            243.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            4.0,
+            11.745,
+            243.0
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            11.745,
+            243.0
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        10.994160714285714,
+        11.056087500000002
+      ],
+      "offsets": [
+        0.0,
+        1.3744583333333333,
+        2.7608355734767027,
+        4.1348668234767025,
+        5.5111785794290835,
+        6.897918162762417,
+        8.275816447076142,
+        9.656253947076143
+      ],
+      "first": 0.15144067333250325,
+      "clockError": 0.1085771918108634,
+      "before": 0.191,
+      "geometry": {
+        "shape": "circle",
+        "radius": 6,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ]
+    },
+    {
+      "action": 34802,
+      "factor": 10,
+      "phaseMode": "lane",
+      "cycle": [
+        [
+          [
+            -10.0,
+            14.756,
+            225.3
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        3.249975524475524,
+        3.2548439560439566
+      ],
+      "offsets": [
+        0.0
+      ],
+      "first": null,
+      "clockError": 0.09068862258430621,
+      "before": 0.0,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 0,
+      "openingOffsets": [
+        0.19139483390172746,
+        1.265550622079071,
+        2.363750455004765
+      ]
+    },
+    {
+      "action": 34802,
+      "factor": 11,
+      "phaseMode": "lane",
+      "cycle": [
+        [
+          [
+            -10.0,
+            6.0,
+            267.5
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        2.5375514705882356,
+        2.5447857142857147
+      ],
+      "offsets": [
+        0.0
+      ],
+      "first": null,
+      "clockError": 0.09415959383753816,
+      "before": 0.0,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 0,
+      "openingOffsets": [
+        0.19545998318364977,
+        1.4597350140055978
+      ]
+    },
+    {
+      "action": 34802,
+      "factor": 10,
+      "phaseMode": "lane",
+      "cycle": [
+        [
+          [
+            0.0,
+            14.756,
+            225.3
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        3.2519175824175828,
+        3.25439010989011
+      ],
+      "offsets": [
+        0.0
+      ],
+      "first": null,
+      "clockError": 0.04649682960717463,
+      "before": 0.0,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 1,
+      "openingOffsets": [
+        0.19139483390172746,
+        1.265550622079071,
+        2.363750455004765
+      ]
+    },
+    {
+      "action": 34802,
+      "factor": 10,
+      "phaseMode": "lane",
+      "cycle": [
+        [
+          [
+            10.0,
+            14.756,
+            225.3
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        3.2517454545454547,
+        3.255437362637363
+      ],
+      "offsets": [
+        0.0
+      ],
+      "first": null,
+      "clockError": 0.07515775460171703,
+      "before": 0.0,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 2,
+      "openingOffsets": [
+        0.19139483390172746,
+        1.265550622079071,
+        2.363750455004765
+      ]
+    },
+    {
+      "action": 34802,
+      "factor": 11,
+      "phaseMode": "lane",
+      "cycle": [
+        [
+          [
+            10.0,
+            6.0,
+            267.5
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 0,
+      "period": [
+        2.5393829131652668,
+        2.5434178571428574
+      ],
+      "offsets": [
+        0.0
+      ],
+      "first": null,
+      "clockError": 0.0818835434173647,
+      "before": 0.0,
+      "geometry": {
+        "shape": "circle",
+        "radius": 5,
+        "anchor": "observed source/cast position candidate",
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 1,
+      "openingOffsets": [
+        0.19545998318364977,
+        1.4597350140055978
+      ]
+    },
+    {
+      "action": 34804,
+      "factor": 12,
+      "phaseMode": "group",
+      "cycle": [
+        [
+          [
+            -12.0,
+            16.733,
+            214.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -12.0,
+            23.371,
+            196.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -12.0,
+            21.154,
+            202.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -12.0,
+            18.938,
+            208.4
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 1,
+      "period": [
+        5.9683214285714286,
+        5.977242236024846
+      ],
+      "offsets": [
+        0.0,
+        0.4535481366459634,
+        0.9077564699792964,
+        1.3666207556935825
+      ],
+      "first": null,
+      "clockError": 0.1751007534042106,
+      "before": 0.096,
+      "geometry": {
+        "shape": "rectangle",
+        "length": 6,
+        "width": 6,
+        "halfWidth": 3.0,
+        "anchor": "source/cast position candidate",
+        "forwardExtentCandidate": [
+          0,
+          6
+        ],
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 0,
+      "openingOffsets": [
+        1.6140105590062117,
+        4.602978509615387
+      ]
+    },
+    {
+      "action": 34804,
+      "factor": 12,
+      "phaseMode": "group",
+      "cycle": [
+        [
+          [
+            -6.0,
+            16.733,
+            214.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -6.0,
+            23.371,
+            196.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -6.0,
+            21.154,
+            202.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            -6.0,
+            18.938,
+            208.4
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 1,
+      "period": [
+        5.967307692307692,
+        5.981542857142858
+      ],
+      "offsets": [
+        0.0,
+        0.446088690476191,
+        0.8986976877289381,
+        1.3493393543956045
+      ],
+      "first": null,
+      "clockError": 0.10862694099380371,
+      "before": 0.109,
+      "geometry": {
+        "shape": "rectangle",
+        "length": 6,
+        "width": 6,
+        "halfWidth": 3.0,
+        "anchor": "source/cast position candidate",
+        "forwardExtentCandidate": [
+          0,
+          6
+        ],
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 1,
+      "openingOffsets": [
+        1.6140105590062117,
+        4.602978509615387
+      ]
+    },
+    {
+      "action": 34804,
+      "factor": 12,
+      "phaseMode": "group",
+      "cycle": [
+        [
+          [
+            0.0,
+            16.733,
+            214.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            0.0,
+            23.371,
+            196.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            0.0,
+            21.154,
+            202.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            0.0,
+            18.938,
+            208.4
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 1,
+      "period": [
+        5.9683214285714286,
+        5.977242236024846
+      ],
+      "offsets": [
+        0.0,
+        0.45991718426500994,
+        0.9176921842650096,
+        1.3745159937888198
+      ],
+      "first": null,
+      "clockError": 0.1558154603639137,
+      "before": 0.097,
+      "geometry": {
+        "shape": "rectangle",
+        "length": 6,
+        "width": 6,
+        "halfWidth": 3.0,
+        "anchor": "source/cast position candidate",
+        "forwardExtentCandidate": [
+          0,
+          6
+        ],
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 0,
+      "openingOffsets": [
+        1.6140105590062117,
+        4.602978509615387
+      ]
+    },
+    {
+      "action": 34804,
+      "factor": 12,
+      "phaseMode": "group",
+      "cycle": [
+        [
+          [
+            12.0,
+            16.733,
+            214.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            23.371,
+            196.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            21.154,
+            202.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            12.0,
+            18.938,
+            208.4
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 1,
+      "period": [
+        5.9683214285714286,
+        5.977242236024846
+      ],
+      "offsets": [
+        0.0,
+        0.45991718426500994,
+        0.9176921842650096,
+        1.3745159937888198
+      ],
+      "first": null,
+      "clockError": 0.1558154603639137,
+      "before": 0.097,
+      "geometry": {
+        "shape": "rectangle",
+        "length": 6,
+        "width": 6,
+        "halfWidth": 3.0,
+        "anchor": "source/cast position candidate",
+        "forwardExtentCandidate": [
+          0,
+          6
+        ],
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 0,
+      "openingOffsets": [
+        1.6140105590062117,
+        4.602978509615387
+      ]
+    },
+    {
+      "action": 34804,
+      "factor": 12,
+      "phaseMode": "group",
+      "cycle": [
+        [
+          [
+            6.0,
+            16.733,
+            214.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            6.0,
+            23.371,
+            196.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            6.0,
+            21.154,
+            202.4
+          ],
+          -0.0
+        ],
+        [
+          [
+            6.0,
+            18.938,
+            208.4
+          ],
+          -0.0
+        ]
+      ],
+      "basePhase": 1,
+      "period": [
+        5.967307692307692,
+        5.981542857142858
+      ],
+      "offsets": [
+        0.0,
+        0.446088690476191,
+        0.8986976877289381,
+        1.3493393543956045
+      ],
+      "first": null,
+      "clockError": 0.10862694099380371,
+      "before": 0.109,
+      "geometry": {
+        "shape": "rectangle",
+        "length": 6,
+        "width": 6,
+        "halfWidth": 3.0,
+        "anchor": "source/cast position candidate",
+        "forwardExtentCandidate": [
+          0,
+          6
+        ],
+        "evidenceLevel": "sheet-candidate",
+        "calibrated": false,
+        "targetRadius": null,
+        "casterRadius": null
+      },
+      "trainingIndices": [
+        1,
+        8,
+        16,
+        18
+      ],
+      "laneIndex": 1,
+      "openingOffsets": [
+        1.6140105590062117,
+        4.602978509615387
+      ]
+    }
+  ],
+  "starts": [
+    {
+      "index": 0,
+      "position": [
+        -5.5,
+        4.244969367980957,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2925208
+    },
+    {
+      "index": 1,
+      "position": [
+        -4.5,
+        4.24497127532959,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2923696
+    },
+    {
+      "index": 2,
+      "position": [
+        -3.5,
+        4.244973182678223,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2927536
+    },
+    {
+      "index": 3,
+      "position": [
+        -2.5,
+        4.244974613189697,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2928140
+    },
+    {
+      "index": 4,
+      "position": [
+        -1.5,
+        4.244976043701172,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2921696
+    },
+    {
+      "index": 5,
+      "position": [
+        -0.5,
+        4.244977951049805,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2926356
+    },
+    {
+      "index": 6,
+      "position": [
+        0.5,
+        4.244978427886963,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2925780
+    },
+    {
+      "index": 7,
+      "position": [
+        1.5,
+        4.244978904724121,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2924164
+    },
+    {
+      "index": 8,
+      "position": [
+        2.5,
+        4.244978904724121,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2926932
+    },
+    {
+      "index": 9,
+      "position": [
+        3.5,
+        4.244978904724121,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2920980
+    },
+    {
+      "index": 10,
+      "position": [
+        4.5,
+        4.2449798583984375,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2902352
+    },
+    {
+      "index": 11,
+      "position": [
+        5.500004768371582,
+        4.244978904724121,
+        323.0
+      ],
+      "recording": 1,
+      "offset": 2922760
+    },
+    {
+      "index": 12,
+      "position": [
+        -5.5,
+        4.244978,
+        325
+      ],
+      "recording": null,
+      "offset": null
+    },
+    {
+      "index": 13,
+      "position": [
+        -4.5,
+        4.244978,
+        325
+      ],
+      "recording": null,
+      "offset": null
+    },
+    {
+      "index": 14,
+      "position": [
+        -3.4999990463256836,
+        4.244970321655273,
+        325.0
+      ],
+      "recording": 18,
+      "offset": 5640716
+    },
+    {
+      "index": 15,
+      "position": [
+        -2.4999990463256836,
+        4.244971752166748,
+        325.0
+      ],
+      "recording": 18,
+      "offset": 5636360
+    },
+    {
+      "index": 16,
+      "position": [
+        -1.4999990463256836,
+        4.244973659515381,
+        325.0
+      ],
+      "recording": 1,
+      "offset": 2923228
+    },
+    {
+      "index": 17,
+      "position": [
+        -0.5,
+        4.2449750900268555,
+        325.0
+      ],
+      "recording": 1,
+      "offset": 2924740
+    },
+    {
+      "index": 18,
+      "position": [
+        0.5000008940696716,
+        4.244976997375488,
+        325.0
+      ],
+      "recording": 1,
+      "offset": 2917576
+    },
+    {
+      "index": 19,
+      "position": [
+        1.5000009536743164,
+        4.244978427886963,
+        325.0
+      ],
+      "recording": 1,
+      "offset": 2922272
+    },
+    {
+      "index": 20,
+      "position": [
+        2.5000009536743164,
+        4.244978904724121,
+        325.0
+      ],
+      "recording": 18,
+      "offset": 5642800
+    },
+    {
+      "index": 21,
+      "position": [
+        3.5000009536743164,
+        4.244978904724121,
+        325.0
+      ],
+      "recording": 18,
+      "offset": 5638052
+    },
+    {
+      "index": 22,
+      "position": [
+        4.5,
+        4.244978427886963,
+        325.0
+      ],
+      "recording": 18,
+      "offset": 5644420
+    },
+    {
+      "index": 23,
+      "position": [
+        5.5,
+        4.244978,
+        325
+      ],
+      "recording": null,
+      "offset": null
+    }
+  ],
+  "recordedConfigurations": [
+    {
+      "recording": 1,
+      "configuration": 112726,
+      "heldout": false
+    },
+    {
+      "recording": 8,
+      "configuration": 515314,
+      "heldout": false
+    },
+    {
+      "recording": 16,
+      "configuration": 759177,
+      "heldout": false
+    },
+    {
+      "recording": 18,
+      "configuration": 252630,
+      "heldout": false
+    },
+    {
+      "recording": 20,
+      "configuration": 654935,
+      "heldout": true
+    },
+    {
+      "recording": 27,
+      "configuration": 468521,
+      "heldout": true
+    }
+  ],
+  "windowContract": "Observed helper announcement through receipt plus one native frame; uncalibrated packet window candidate. No helper-pose interpolation.",
+  "objective": "Earliest supported entry into either native launch range, followed by row1 GimmickJump and server winner confirmation."
+}

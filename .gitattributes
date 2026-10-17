@@ -1,0 +1,3 @@
+shared/FallGuysPilot/** text eol=lf
+shared/FallGuysPilot/Assets/*.gz binary
+packages.lock.json text eol=lf

@@ -12,6 +12,8 @@ namespace Mr.Bean3;
 internal sealed class MrBean3BuildCapabilities
 {
     public MrBean3AccessGateFactory? CreateAccessGate { get; init; }
+    public uint? RequiredDataCenterId { get; init; }
+    public Uri? TelemetryEndpoint { get; init; }
 
     public static MrBean3BuildCapabilities PublicNoService { get; } = new()
     {

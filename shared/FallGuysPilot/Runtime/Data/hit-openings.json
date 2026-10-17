@@ -1,0 +1,270 @@
+{
+  "training": [
+    2,
+    5,
+    11,
+    12,
+    13,
+    15,
+    16,
+    18
+  ],
+  "heldOut": [
+    0,
+    20,
+    26
+  ],
+  "timingAllowanceSeconds": 0.1,
+  "batchSpacingSeconds": 3,
+  "scope": "Candidate receipt bounds; every batch remains possible at every source. No source IDs or future round observations.",
+  "sources": [
+    {
+      "action": 34773,
+      "x": -10.0,
+      "z": -242.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": -10.0,
+      "z": -232.0,
+      "minimum": 0.131,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": -10.0,
+      "z": -222.0,
+      "minimum": 0.121,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": -10.0,
+      "z": -212.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": -10.0,
+      "z": -202.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": -0.0,
+      "z": -242.0,
+      "minimum": 0.121,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 0.0,
+      "z": -222.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 0.0,
+      "z": -202.0,
+      "minimum": 0.121,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 10.0,
+      "z": -242.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 10.0,
+      "z": -232.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 10.0,
+      "z": -222.0,
+      "minimum": 0.121,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 10.0,
+      "z": -212.0,
+      "minimum": 0.131,
+      "maximum": 0.39,
+      "batches": 2
+    },
+    {
+      "action": 34773,
+      "x": 10.0,
+      "z": -202.0,
+      "minimum": 0.094,
+      "maximum": 0.376,
+      "batches": 2
+    },
+    {
+      "action": 34775,
+      "x": -6.498618,
+      "z": -328.0,
+      "minimum": 0.74,
+      "maximum": 1.043,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -6.498617,
+      "z": -308.0,
+      "minimum": 0.742,
+      "maximum": 1.0,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -6.498618,
+      "z": -288.0,
+      "minimum": 0.72,
+      "maximum": 1.016,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -3.498618,
+      "z": -328.0,
+      "minimum": 0.955,
+      "maximum": 1.26,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -3.498619,
+      "z": -308.0,
+      "minimum": 0.935,
+      "maximum": 1.228,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -3.498619,
+      "z": -288.0,
+      "minimum": 0.949,
+      "maximum": 1.26,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -0.498618,
+      "z": -328.0,
+      "minimum": 1.085,
+      "maximum": 1.363,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -0.498619,
+      "z": -308.0,
+      "minimum": 1.08,
+      "maximum": 1.373,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": -0.498618,
+      "z": -288.0,
+      "minimum": 1.094,
+      "maximum": 1.356,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 0.500345,
+      "z": -321.0,
+      "minimum": 0.724,
+      "maximum": 1.022,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 0.500345,
+      "z": -301.0,
+      "minimum": 0.713,
+      "maximum": 1.009,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 0.500345,
+      "z": -281.0,
+      "minimum": 0.73,
+      "maximum": 1.008,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 3.500341,
+      "z": -321.0,
+      "minimum": 0.965,
+      "maximum": 1.211,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 3.50034,
+      "z": -301.0,
+      "minimum": 0.935,
+      "maximum": 1.249,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 3.50034,
+      "z": -281.0,
+      "minimum": 0.969,
+      "maximum": 1.206,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 6.500339,
+      "z": -321.0,
+      "minimum": 1.062,
+      "maximum": 1.351,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 6.500339,
+      "z": -301.0,
+      "minimum": 1.052,
+      "maximum": 1.364,
+      "batches": 6
+    },
+    {
+      "action": 34775,
+      "x": 6.500333,
+      "z": -281.0,
+      "minimum": 1.078,
+      "maximum": 1.396,
+      "batches": 6
+    }
+  ]
+}
