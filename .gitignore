@@ -1,0 +1,28 @@
+.vs/
+bin/
+obj/
+artifacts/
+
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+.idea/
+.vscode/
+
+.dotnet/
+# Local agent/session tooling; never publish.
+.cursor-sdk-store/
+.cheap-cursor/
+
+# Local agent and standalone Markdown description files; never publish.
+AGENTS.md
+*.md
+
+# Private-only trees and staging; never publish.
+_private/
+OfficialBuildProfile.g.cs
+*.official.staging/
+official-staging/
+release-manifest.private.json
