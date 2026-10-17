@@ -4,7 +4,7 @@
   "Punchline": "可以奪冠.",
   "InternalName": "Mr.Bean3",
   "IconUrl": "https://raw.githubusercontent.com/transparent-duck/Mr.Bean3/refs/heads/main/icon.png",
-  "AssemblyVersion": "7.55.6",
+  "AssemblyVersion": "7.55.7",
   "ApplicableVersion": "any",
   "DalamudApiLevel": 15,
   "LoadRequiredState": 0,
