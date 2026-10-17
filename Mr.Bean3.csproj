@@ -4,7 +4,7 @@
   <PropertyGroup>
     <AssemblyName>Mr.Bean3</AssemblyName>
     <RootNamespace>Mr.Bean3</RootNamespace>
-    <Version>7.55.1</Version>
+    <Version>7.55.2</Version>
     <Description>Standalone Fall Guys pilot host.</Description>
     <IsPackable>false</IsPackable>
     <TargetFramework>net10.0-windows</TargetFramework>
