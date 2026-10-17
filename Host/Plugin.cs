@@ -20,6 +20,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly IMrBean3AccessGate accessGate;
     private readonly Configuration configuration = new();
     private readonly UsageCollector? telemetry;
+    private readonly LocalStatistics statistics;
     private FallGuysPilot? pilot;
     private PilotTravel? travel;
     private ActionTracker? tracker;
@@ -34,6 +35,8 @@ public sealed class Plugin : IDalamudPlugin
         commands = commandManager;
         this.framework = framework;
         chat = chatGui;
+        statistics = new LocalStatistics(pluginInterface.GetPluginConfigDirectory(),
+            error => pluginLog.Error(error, "[Mr.Bean3] Statistics persistence failed."));
         bool omenInitialized = false;
         try
         {
@@ -92,6 +95,8 @@ public sealed class Plugin : IDalamudPlugin
             travel = new PilotTravel();
             tracker = new ActionTracker();
             pilot = new FallGuysPilot(configuration, tracker, travel.Execute);
+            statistics.BeginSession(Service.ClientState.TerritoryType == 1165);
+            pilot.Observed += statistics.Observe;
             if (telemetry != null)
             {
                 telemetry.BeginSession(Service.ClientState.TerritoryType == 1165);
@@ -104,6 +109,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private void Update(IFramework _)
     {
+        statistics.FlushPending();
         if (pilot == null) return;
         bool zoning = Service.Condition[ConditionFlag.BetweenAreas] || Service.Condition[ConditionFlag.BetweenAreas51];
         if (!zoning && (!Service.ClientState.IsLoggedIn || Service.PlayerState.ContentId != runningCid))
@@ -112,6 +118,7 @@ public sealed class Plugin : IDalamudPlugin
         { Stop("cancelled"); return; }
         try
         {
+            statistics.UpdateTerritory(Service.ClientState.TerritoryType, zoning);
             telemetry?.BeforeUpdate(Service.ClientState.TerritoryType);
             pilot.Update();
             travel?.Update();
@@ -130,6 +137,13 @@ public sealed class Plugin : IDalamudPlugin
             ImGui.BeginDisabled(pilot != null || !RegionAllowed());
             if (ImGui.Button("開始")) Start();
             ImGui.EndDisabled();
+            ImGui.SameLine();
+            if (ImGui.Button("關閉")) { Stop("cancelled"); open = false; }
+            ImGui.TextUnformatted($"關卡總數: {statistics.TotalRuns}");
+            ImGui.TextUnformatted($"奪冠: {statistics.Wins}");
+            ImGui.TextUnformatted($"失敗: {statistics.Failures}");
+            ImGui.TextUnformatted($"手動接管或中途停止: {statistics.Interrupted}");
+            ImGui.TextUnformatted($"勝率: {statistics.WinRate * 100:0.0}%");
             ImGui.TextUnformatted("作者還沒有刷完. 故此該外掛僅在[陸行鳥區]生效.");
         }
         ImGui.End();
@@ -138,6 +152,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private void Stop(string outcome)
     {
+        statistics.Stop();
         configuration.BlundervilleEnabled = configuration.BlundervilleAutoLoop = false;
         var oldPilot = pilot; pilot = null;
         var oldTravel = travel; travel = null;
@@ -164,6 +179,6 @@ public sealed class Plugin : IDalamudPlugin
         pluginInterface.UiBuilder.OpenMainUi -= Open;
         commands.RemoveHandler(ProductIdentity.Command);
         try { Stop("unknown"); }
-        finally { try { telemetry?.Dispose(); } finally { DService.Uninit(); } }
+        finally { try { telemetry?.Dispose(); statistics.FlushPending(true); } finally { DService.Uninit(); } }
     }
 }

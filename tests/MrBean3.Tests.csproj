@@ -5,6 +5,9 @@
     <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../Host/LocalStatistics.cs" Link="LocalStatistics.cs" />
+    <Compile Include="../shared/FallGuysPilot/Pilot/Water/WaterRoutes.cs" Link="WaterRoutes.cs" />
+    <Compile Include="../shared/FallGuysPilot/Pilot/Water/WaterTerrain.cs" Link="WaterTerrain.cs" />
     <Compile Include="../Telemetry/RunSummary.cs" Link="RunSummary.cs" />
     <Compile Include="../Telemetry/UsageOutbox.cs" Link="UsageOutbox.cs" />
     <Compile Include="../shared/FallGuysPilot/Pilot/PilotObservation.cs" Link="PilotObservation.cs" />
