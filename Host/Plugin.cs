@@ -82,11 +82,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         if (pilot != null) return;
         if (!RegionAllowed()) { chat.PrintError("Mr.Bean3 僅在陸行鳥區生效。"); return; }
-        if (!accessGate.TryAuthorize(out var error))
-        {
-            chat.PrintError(string.IsNullOrEmpty(accessGate.StartDenialNotice) ? error : accessGate.StartDenialNotice);
-            return;
-        }
+        if (!accessGate.TryAuthorize(out _)) return;
         if (Service.LocalPlayer is not { IsDead: false } || Service.ClientState.TerritoryType is not (1197 or 1165))
         { chat.PrintError("請先進入糖豆人大廳。"); return; }
         try
@@ -134,11 +130,13 @@ public sealed class Plugin : IDalamudPlugin
         ImGui.SetNextWindowSize(new(480, 100), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("你是壞孩子###Mr.Bean3", ref open, ImGuiWindowFlags.AlwaysAutoResize))
         {
-            ImGui.BeginDisabled(pilot != null || !RegionAllowed());
+            ImGui.BeginDisabled(pilot != null || !RegionAllowed() || !accessGate.Current.IsAllowed);
             if (ImGui.Button("開始")) Start();
             ImGui.EndDisabled();
             ImGui.SameLine();
             if (ImGui.Button("停止")) Stop("cancelled");
+            if (!accessGate.Current.IsAllowed)
+                ImGui.TextUnformatted(string.IsNullOrEmpty(accessGate.StartDenialNotice) ? "目前無法使用。" : accessGate.StartDenialNotice);
             ImGui.TextUnformatted($"關卡總數: {statistics.TotalRuns}");
             ImGui.TextUnformatted($"奪冠: {statistics.Wins}");
             ImGui.TextUnformatted($"失敗: {statistics.Failures}");
