@@ -37,10 +37,10 @@ internal static partial class MrBean3BuildProfile
         ArgumentNullException.ThrowIfNull(pluginLog);
 
         MrBean3AccessGateFactory? factory = Capabilities.CreateAccessGate;
-        if (factory != null)
-            return factory(pluginInterface, pluginLog);
-
-        return new MrBean3AllowAllAccessGate();
+        IMrBean3AccessGate gate = factory != null
+            ? factory(pluginInterface, pluginLog)
+            : new MrBean3AllowAllAccessGate();
+        return new MrBean3CidExemptGate(gate);
     }
 
     /// <summary>
