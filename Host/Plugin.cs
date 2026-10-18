@@ -74,7 +74,8 @@ public sealed class Plugin : IDalamudPlugin
         else Open();
     }
 
-    private bool RegionAllowed() => MrBean3BuildProfile.Capabilities.RequiredDataCenterId is not { } required ||
+    private bool RegionAllowed() => accessGate.IsRegionRestrictionExempt ||
+        MrBean3BuildProfile.Capabilities.RequiredDataCenterId is not { } required ||
         Service.PlayerState.IsLoaded && Service.PlayerState.CurrentWorld.IsValid &&
         Service.PlayerState.CurrentWorld.Value.DataCenter.RowId == required;
 
