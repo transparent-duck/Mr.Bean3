@@ -27,11 +27,13 @@ internal enum HazardShape
 /// <param name="Lead">Seconds before a predicted receipt that the footprint is treated as dangerous.</param>
 /// <param name="Tail">Seconds after a predicted receipt.</param>
 /// <param name="Area">Optional origin filter (XMin, XMax, ZMin, ZMax) when one action has different families.</param>
-/// <param name="CastWarning">When true, a cast start predicts its activation at cast end.</param>
+/// <param name="CastWarning">When true, a cast start predicts its activation after the packet cast duration.</param>
 /// <param name="Quantum">Origin grid (m) that identifies one station; coarser for noisy moving sources.</param>
+/// <param name="EffectRotationOffset">Converts effect-packet facing to the cast footprint direction.</param>
 internal sealed record HazardSpec(uint ActionId, HazardShape Shape, float Size, float Length = 0,
-    double Period = 0, double Lead = 0.25, double Tail = 0.15, Vector4? Area = null,
-    bool CastWarning = false, float Quantum = 0.25f, string Note = "", float ForwardMin = 0, double EndpointDwell = 0)
+    double Period = 0, double Lead = 0.15, double Tail = 0.10, Vector4? Area = null,
+    bool CastWarning = false, float Quantum = 0.25f, string Note = "", float ForwardMin = 0, double EndpointDwell = 0,
+    float EffectRotationOffset = 0)
 {
     public bool Accepts(Vector2 origin) => Area is not { } a ||
         origin.X >= a.X && origin.X <= a.Y && origin.Y >= a.Z && origin.Y <= a.W;
@@ -98,6 +100,52 @@ internal sealed class HazardField
 
     public HazardField(HazardSpec[] specs) => this.specs = specs;
 
+    // Installed action durations exceed ActorCast durations by 0.300 s for
+    // every recorded cast family. Keep this attack anchor separate from padding.
+    internal static double CastActivation(MechanicCastObservation cast)
+        => cast.Seconds + cast.Duration + .3;
+
+    private bool frozen;
+    private double frozenStart, frozenEnd;
+    internal bool Covers(double start, double end) => !frozen || start >= frozenStart && end <= frozenEnd + 1e-6;
+
+    internal HazardField Snapshot(double now, double horizon = 180)
+    {
+        double start = Math.Floor(now / 30) * 30;
+        Prepare(start, horizon);
+        var copy = new HazardField(specs);
+        copy.ApplySnapshot(this, start, start + horizon);
+        foreach (var station in copy.stations.Values)
+            for (int i = 0; i < station.Windows.Count; ++i)
+            {
+                var window = station.Windows[i];
+                station.Windows[i] = (window.Start - 1e-6, window.End + 1e-6);
+            }
+        return copy;
+    }
+
+    internal bool ApplySnapshot(HazardField snapshot)
+        => ApplySnapshot(snapshot, snapshot.frozenStart, snapshot.frozenEnd);
+
+    private bool ApplySnapshot(HazardField source, double start, double end)
+    {
+        bool geometryChanged = false;
+        foreach (var (key, value) in source.stations)
+        {
+            if (!stations.TryGetValue(key, out var target))
+                stations.Add(key, target = new() { Spec = value.Spec });
+            else geometryChanged |= target.Spec != value.Spec || target.Origin != value.Origin ||
+                target.Endpoint != value.Endpoint || target.Rotation != value.Rotation;
+            target.Spec = value.Spec; target.Origin = value.Origin; target.Endpoint = value.Endpoint;
+            target.Rotation = value.Rotation; target.Extent = value.Extent; target.Period = value.Period;
+            target.ChangedAt = value.ChangedAt; target.KnownUntil = value.KnownUntil;
+            target.Windows.Clear(); target.Windows.AddRange(value.Windows);
+        }
+        frozen = true; frozenStart = start; frozenEnd = end;
+        RouteRevision = source.RouteRevision; Revision = source.Revision;
+        return geometryChanged;
+    }
+
     // Combo/resource metadata (27/62), misses and status 529 alone do not
     // establish a hazard hit. Use positive damage, stun or displacement.
     internal static bool IsHit(MechanicEffectRow effect) =>
@@ -120,7 +168,7 @@ internal sealed class HazardField
                 var origin = new Vector2(o.X, o.Z);
                 if (SpecFor(effect.ActionId, origin) is not { } spec) return;
                 var end = effect.PacketTargetPosition is { } e ? new Vector2(e.X, e.Z) : origin;
-                var station = StationFor(spec, origin, effect.Rotation, end);
+                var station = StationFor(spec, origin, effect.Rotation + spec.EffectRotationOffset, end);
                 if (station.Receipts.Count == 0 || station.Period <= 0 ||
                     Math.Abs(Math.IEEERemainder(effect.Seconds - station.Receipts[^1], station.Period)) > .15)
                     Changed(station);
@@ -143,7 +191,7 @@ internal sealed class HazardField
                 var origin = new Vector2(cast.Position.X, cast.Position.Z);
                 if (SpecFor(cast.ActionId, origin) is not { CastWarning: true } spec) return;
                 var station = StationFor(spec, origin, cast.Rotation, origin);
-                station.CastEnd = cast.Seconds + cast.Duration;
+                station.CastEnd = CastActivation(cast);
                 Changed(station);
                 ++Revision;
                 break;
@@ -202,6 +250,12 @@ internal sealed class HazardField
     public void Prepare(double now, double horizon)
     {
         PreparedAt = now;
+        if (frozen)
+        {
+            if (now < frozenStart || now + horizon > frozenEnd + 1e-6)
+                throw new InvalidOperationException("Planning exceeded its hazard snapshot.");
+            return;
+        }
         double end = now + horizon;
         foreach (var s in stations.Values)
         {
@@ -210,7 +264,7 @@ internal sealed class HazardField
             double lead = s.Spec.Lead, tail = s.Spec.Tail;
             foreach (double t in r)
                 if (t + tail >= now - 1) s.Windows.Add((t - lead, t + tail));
-            if (s.CastEnd is { } castEnd) s.Windows.Add((castEnd - lead - 0.1, castEnd + tail + 0.1));
+            if (s.CastEnd is { } castEnd) s.Windows.Add((castEnd - lead, castEnd + tail));
             s.KnownUntil = r.Count > 0 ? r[^1] : now;
             if (s.Period <= 0 || r.Count == 0 || r[^1] - r[0] < s.Period * 0.9) continue;
             double last = r[^1], cycleStart = last - s.Period + 0.05;

@@ -3,15 +3,7 @@
   "files": [
     {
       "path": "Pilot/Actuator.cs",
-      "sha256": "72754839ae47611939105d8cde5f983e8c0fcba944b2bfc5b00f4aa6207e6f5d"
-    },
-    {
-      "path": "Runtime/Mechanics/KnightBridgeSupport.cs",
-      "sha256": "b329a50259188616d88a5c6de68c0a5f3056a88ed3c093df94c3f1f2e6d935fd"
-    },
-    {
-      "path": "Runtime/Mechanics/HitPendulumClockGroups.cs",
-      "sha256": "bf36406f58f4306350b4aaf9ee1b8099bec8f3b42afc149760bca05e812f4ad6"
+      "sha256": "667ef1da114b25d088ffa40496b48a6886bc960c19720aa2bff6d6dad50ad735"
     },
     {
       "path": "Runtime/Mechanics/HitParadePhaseModel.cs",
@@ -58,12 +50,12 @@
       "sha256": "9b2880ad33b567457a9c06c8bdefa0d22343552561cf19064324f918e521cb6f"
     },
     {
-      "path": "Runtime/Data/crown-phases.json",
-      "sha256": "973335029fcec7a4faca452eedbf9e218270dc1c5059005f3df33487c1ba246e"
+      "path": "Runtime/Mechanics/HitPendulumClockGroups.cs",
+      "sha256": "bf36406f58f4306350b4aaf9ee1b8099bec8f3b42afc149760bca05e812f4ad6"
     },
     {
-      "path": "Runtime/Windows.cs",
-      "sha256": "c821b1cbbbb518d4e64ebea75fab888eeb87ec671b4211d09dbb7bc8de7bc2d0"
+      "path": "Runtime/Data/crown-phases.json",
+      "sha256": "973335029fcec7a4faca452eedbf9e218270dc1c5059005f3df33487c1ba246e"
     },
     {
       "path": "Runtime/RingObservations.cs",
@@ -90,20 +82,40 @@
       "sha256": "6144e9c85c07781e4cb014f2df8da79124a127eb9d4a59df6750b6009a823821"
     },
     {
+      "path": "Runtime/GroundInputAuthority.cs",
+      "sha256": "dee4e2507131eb5105c3bef29e9a60d5ac9489d5e7dd89036d8b6f5a572db229"
+    },
+    {
+      "path": "Runtime/FallGuys.Runtime.csproj",
+      "sha256": "b934af82d928e7049490cca8ab23848644b341498439e66e4b9ac33acfddfff6"
+    },
+    {
+      "path": "Runtime/ExecutionOwner.cs",
+      "sha256": "b7710a71f3987abf588860c8d3be4aa766fcd25975c775e1bd5f05aee8e7fb9c"
+    },
+    {
+      "path": "Runtime/CrystalObservations.cs",
+      "sha256": "ed0aa03ace79f7dc8032c5975c4f6584eb8f24a1585bb424ba20aeb404f0a5df"
+    },
+    {
+      "path": "Runtime/CrownTransportLaw.cs",
+      "sha256": "ae4024e0287896b561b4d0b83dceb72845d68c9c0240750152f93e2b49bbe6f8"
+    },
+    {
+      "path": "Runtime/Windows.cs",
+      "sha256": "c821b1cbbbb518d4e64ebea75fab888eeb87ec671b4211d09dbb7bc8de7bc2d0"
+    },
+    {
+      "path": "Runtime/Mechanics/KnightBridgeSupport.cs",
+      "sha256": "b329a50259188616d88a5c6de68c0a5f3056a88ed3c093df94c3f1f2e6d935fd"
+    },
+    {
       "path": "Runtime/Mechanics/KnightRecordedCycle.cs",
       "sha256": "07c7e98f674f68ea51b78d1e93e1ecde63469bea01fe8dec5b41a27b635f6c09"
     },
     {
       "path": "Runtime/Mechanics/MechanicBurstWindows.cs",
       "sha256": "5f6fce95f14eb7c40a7c8a91e38a320123c2993c1b08091e44b6ce32f0d84414"
-    },
-    {
-      "path": "Runtime/Mechanics/MechanicCatalog.cs",
-      "sha256": "f108aba2bea113bf8f9617c0dce6e8a5a329431ae48d59cd4ebfb3e47c7059e1"
-    },
-    {
-      "path": "Runtime/Mechanics/MechanicFootprint.cs",
-      "sha256": "67ec3d660fb4436eecf8948be1775bef7c3f1c331ce6a88b8bb76f5dc7ddaa67"
     },
     {
       "path": "Assets/ring-ground.json.gz",
@@ -134,6 +146,10 @@
       "sha256": "f242ac9ee3649e783f80ea7b40d39745a232332f1e049f05fce21d3df3c9431a"
     },
     {
+      "path": "Assets/hit-hazards.json.gz",
+      "sha256": "0b84a3e4c09317f272b0a46b0ff421407478edb8ffdf141e94ed802a7bdcb1aa"
+    },
+    {
       "path": "Assets/hit-ground.json.gz",
       "sha256": "93880b14871b553962dc0510d49646e34743f6e36a45fe22c45577539df707eb"
     },
@@ -143,19 +159,19 @@
     },
     {
       "path": "Assets/crystal-hazards.json.gz",
-      "sha256": "a333e81ee3ca2d05af52d33f5cb547677bfa90455f792cdd83b33e4b635c01ab"
-    },
-    {
-      "path": "Runtime/GroundInputAuthority.cs",
-      "sha256": "dee4e2507131eb5105c3bef29e9a60d5ac9489d5e7dd89036d8b6f5a572db229"
+      "sha256": "552765929db61290510295f55f4baeb568d6a14167bdb5b529dc94bccf8af8bb"
     },
     {
       "path": "Assets/crystal-ground.json.gz",
       "sha256": "cf44fe795c60ce5279f8999f65ad636be97df1fdb4ffc31bd7816c42a4da7b70"
     },
     {
+      "path": "Assets/crown-routes.json.gz",
+      "sha256": "5949afc57ea3a8432a932a5e193a86dd45e7b1d9b4781621a401564421ecf532"
+    },
+    {
       "path": "Assets/crown-hazards.json.gz",
-      "sha256": "c39c42db5b5eda66156ce536a069f804b1dc2d7b2f5ff5f0a44f8575a6399ccc"
+      "sha256": "a1af14fb2684c82addfad8ff3816261a69d6415f6e0cef4036edefa733325be2"
     },
     {
       "path": "Assets/crown-ground.json.gz",
@@ -194,52 +210,72 @@
       "sha256": "1376d1562fb251dcbbb6649dc190345b8d5e9e4bbcdcec21b5fd9109b62f7999"
     },
     {
-      "path": "Assets/crown-routes.json.gz",
-      "sha256": "ee32eae7c1598e2ee0099d8e19977ecd685afd4d0a73edeef1473bd82d0000c5"
+      "path": "Runtime/Mechanics/MechanicFootprint.cs",
+      "sha256": "67ec3d660fb4436eecf8948be1775bef7c3f1c331ce6a88b8bb76f5dc7ddaa67"
     },
     {
-      "path": "Assets/ring-hazards.json.gz",
-      "sha256": "a7bf06cc98405504d5ba830d28085edda8f747d887bb013d4f28ddeea52fd51f"
+      "path": "Runtime/Mechanics/MechanicCatalog.cs",
+      "sha256": "f108aba2bea113bf8f9617c0dce6e8a5a329431ae48d59cd4ebfb3e47c7059e1"
     },
     {
-      "path": "Runtime/FallGuys.Runtime.csproj",
-      "sha256": "b934af82d928e7049490cca8ab23848644b341498439e66e4b9ac33acfddfff6"
+      "path": "Runtime/CourseRouter.cs",
+      "sha256": "12de468a9c7985ad18f340e4567859904efc6458b07f0a955a6fd53bd2caa282"
     },
     {
-      "path": "Runtime/CrystalObservations.cs",
-      "sha256": "ed0aa03ace79f7dc8032c5975c4f6584eb8f24a1585bb424ba20aeb404f0a5df"
+      "path": "Runtime/CourseObservations.cs",
+      "sha256": "1ff391253c9bc4af8b723d42a4752d6baaa2e2e20c63c7b6e02c0ac02b58e1b9"
     },
     {
-      "path": "Pilot/Courses/HitSteeringStep.cs",
-      "sha256": "84228cf190b0d509dd07e811308166e2c0b5f9c1f6907ef16e87b275de46b7c8"
+      "path": "Runtime/AssetIO.cs",
+      "sha256": "8eb8ffffc34e19419be4eace2880a6f2c69cbc23aa916b9f3e28ebd8e3f87e48"
     },
     {
-      "path": "Pilot/Courses/HitOpeningStep.cs",
-      "sha256": "196628a31236248bfcccfd39042165d6f4e7b7fc898a4bd19e87d916e887d997"
+      "path": "Movement/LeaveDutyHelper.cs",
+      "sha256": "3d692b33a155fe5ef3d16dcb3793190fd5319b325e4f473708c3198721547a46"
     },
     {
-      "path": "Pilot/Courses/HitGround.cs",
-      "sha256": "e1e5e95f2d2033b9f678c7e08dfc49db173322adbcff71414f9b88806154f0ee"
+      "path": "Pilot/Courses/HitForcedMarch.cs",
+      "sha256": "a7a84031963377ce9374a8edc80a2b24474e0057d1e756ef14dbe8b7268a76b8"
+    },
+    {
+      "path": "Pilot/Courses/HitCourseGeometry.cs",
+      "sha256": "3349dd3037f8814d5d77a8384992ddbb62b61cfa2102e38c8264c4158ceadaa9"
     },
     {
       "path": "Pilot/Courses/HitCourse.cs",
-      "sha256": "0cd5d9d8836b8b13302071879433c6e26a1dfe9b859c45fdc1a13930274a8b8a"
+      "sha256": "2279ed82d296269926cdd65d865dac3890d1d0d0deea16eb984862b3d3174338"
     },
     {
       "path": "Pilot/Courses/HitColumnStep.cs",
-      "sha256": "ed18c950439ece2b1585d7ec5c379e26b733331d04c53b898b6bc850d22b8ad5"
+      "sha256": "6fa9031dfecb7f91671aee471a458d54e94f86655aad835cb133a592b7dc567b"
     },
     {
       "path": "Pilot/Courses/CourseScripts.cs",
       "sha256": "44f0500e7d9ac1f272b6f19300f67989baf130043a25a76edf993e29ef55e704"
     },
     {
+      "path": "Pilot/Courses/CourseRouteStep.Sections.cs",
+      "sha256": "7b00615d28fba4909469e2ead89c9e8d86c750b59d84cf8b99cc08021628ca6d"
+    },
+    {
+      "path": "Pilot/Courses/CourseRouteStep.Clock.cs",
+      "sha256": "b4bc88f78f523985cc54dc1407bb372a7ba8139c13ce1b24d38a033c0daf8503"
+    },
+    {
+      "path": "Pilot/Courses/CourseRouteStep.Background.cs",
+      "sha256": "c7cce19cf3f1ae39aa6474ebdad65539fe0de0703a9e835d7a583e1163b9f5ba"
+    },
+    {
+      "path": "Pilot/Courses/CourseRoutePlanner.cs",
+      "sha256": "ccd110d5cba34990d5b28b0641afb9ec257a03c7dd9504f7edc3bb0b1812c813"
+    },
+    {
       "path": "Pilot/Courses/CourseHazards.cs",
-      "sha256": "2548393d846cac539d15c74849997c1647205c79b495922c3f5002c1e4ea13c3"
+      "sha256": "42261b29f764d6d8e51023a5e758c15bf516636e56b0a034fbb31f614b03e46a"
     },
     {
       "path": "Pilot/Script.cs",
-      "sha256": "4e3bce9a2a7bda38dccabf50fea238c3958e1fcb9a3286429fe0ec46a31abce4"
+      "sha256": "0cd940265ca2f5f4fc85b0ed7ced30d849f0eb625ca6fc4308c04c6785151ffe"
     },
     {
       "path": "Pilot/Planner.cs",
@@ -259,15 +295,15 @@
     },
     {
       "path": "Pilot/Hazards.cs",
-      "sha256": "8e3e0558266a83b0c99a8ff2999011a77eae7c9a9a6ab3b369b74070a51f0493"
+      "sha256": "958f4a3658b73e01b2805d59e16ecefb72ee2657bf5f30fa3bde0b286f6b0104"
     },
     {
       "path": "Pilot/FallGuysPilot.WaterOverlay.cs",
-      "sha256": "75ac4c4633a1cba9a5e6f2e170b7c886fe0af31071f7bac10265afa7ca1b5af6"
+      "sha256": "43cc81246974dc81d65eee2be7b4c014fadd9461d6d6f5373796302b1340d3ae"
     },
     {
       "path": "Pilot/FallGuysPilot.WaterDebug.cs",
-      "sha256": "f2c8133536f77e56c55105f848936eb94c65a5519a153f5d1599610adaf2e4e4"
+      "sha256": "e411e7841fad8c4dc2858e09759343ab182ef7fcab55972806847e5ee59cfd0e"
     },
     {
       "path": "Pilot/FallGuysPilot.Sources.cs",
@@ -275,7 +311,7 @@
     },
     {
       "path": "Pilot/FallGuysPilot.RouteOverlay.cs",
-      "sha256": "679c1430bbae6109e7ce43aab1095a15754891abf8849e7ecf094c5595376e02"
+      "sha256": "0ae2f8f4d364b11a75c506518c92edc3dfe42319debcc17b4df62950759e2e41"
     },
     {
       "path": "Pilot/FallGuysPilot.Observation.cs",
@@ -287,47 +323,31 @@
     },
     {
       "path": "Pilot/FallGuysPilot.Cycle.cs",
-      "sha256": "0c65172fa225ec0cec89e040724fb35bdbfecbffd1706f8ba5ca6008193c8666"
+      "sha256": "44a002a489bd54c709a81ce449312a266576d92628f9e2da38737b7c4e05022f"
     },
     {
       "path": "Pilot/FallGuysPilot.cs",
-      "sha256": "6aaf1f2ba3e32243f1bb3935afe0c3f953f540115e6aa0be752224b87c2992c5"
+      "sha256": "285687d848c9ee13dca1faf58eace6d46fdc50fd1608ab9a729be278722c7615"
+    },
+    {
+      "path": "Pilot/FallGuysPilot.ActiveRouteOverlay.cs",
+      "sha256": "740c8ccefe60447f4f10bfa85829b6d05a00e3435cf01c511d65114fdd13ca33"
+    },
+    {
+      "path": "Pilot/Courses/HitGround.cs",
+      "sha256": "e1e5e95f2d2033b9f678c7e08dfc49db173322adbcff71414f9b88806154f0ee"
+    },
+    {
+      "path": "Assets/ring-hazards.json.gz",
+      "sha256": "6e6879048f92b2ad6f68410be820cc46ea1bc0c5127f9057fd1e69d6d5d826c9"
+    },
+    {
+      "path": "Pilot/Courses/HitOpeningStep.cs",
+      "sha256": "00a8d66023efddeae1a945b7af4b638cec29e3098f025cfd8b6f19ef37e2c794"
     },
     {
       "path": "Pilot/Courses/HitTimedRoutes.cs",
-      "sha256": "821b689e090df284e5ec5719e1333b3af9d04c0f95903316cf582b699e6dbd83"
-    },
-    {
-      "path": "Pilot/Courses/HitWaterRouteStep.cs",
-      "sha256": "665a797adeadb13474aa8b83f8b95399b168de06474fe3c2788567d4af75ddef"
-    },
-    {
-      "path": "Pilot/Courses/HitWetStep.cs",
-      "sha256": "12baf8e0b3db4f5ce645ad2005bda28079f85089b394a6c051bf23ffb2218e78"
-    },
-    {
-      "path": "Pilot/Courses/OtherCourses.cs",
-      "sha256": "e80d4c43250dc9780fba6420783e0122ef8c453a6efe7ddfdfc6f9ab442b7cbe"
-    },
-    {
-      "path": "Runtime/CrownTransportLaw.cs",
-      "sha256": "ae4024e0287896b561b4d0b83dceb72845d68c9c0240750152f93e2b49bbe6f8"
-    },
-    {
-      "path": "Runtime/CourseRouter.cs",
-      "sha256": "12de468a9c7985ad18f340e4567859904efc6458b07f0a955a6fd53bd2caa282"
-    },
-    {
-      "path": "Runtime/CourseObservations.cs",
-      "sha256": "1ff391253c9bc4af8b723d42a4752d6baaa2e2e20c63c7b6e02c0ac02b58e1b9"
-    },
-    {
-      "path": "Runtime/AssetIO.cs",
-      "sha256": "8eb8ffffc34e19419be4eace2880a6f2c69cbc23aa916b9f3e28ebd8e3f87e48"
-    },
-    {
-      "path": "Movement/LeaveDutyHelper.cs",
-      "sha256": "3d692b33a155fe5ef3d16dcb3793190fd5319b325e4f473708c3198721547a46"
+      "sha256": "9413ecfa270e30dc9cabdf33392be9fc30859b1c66a62230ccdb6b7d806c3e60"
     },
     {
       "path": "Movement/DirectJumpObservation.cs",
@@ -343,19 +363,19 @@
     },
     {
       "path": "Movement/DirectMovementController.cs",
-      "sha256": "105cc28561a78ea4e27e6645984a12452d485531c0f1254ce6ed3fa70318f8f3"
+      "sha256": "91df477afe4baba4e449ba8907bcdb84ed267c98abcfc5f491823be529ed3926"
     },
     {
       "path": "Native/SessionRecorder.cs",
       "sha256": "ef9d46d5a024d9c05789a12d039cbf4d4d4b15281eda4144a1397568c1bb9484"
     },
     {
-      "path": "Runtime/ExecutionOwner.cs",
-      "sha256": "b7710a71f3987abf588860c8d3be4aa766fcd25975c775e1bd5f05aee8e7fb9c"
-    },
-    {
       "path": "Native/CourseScene.cs",
       "sha256": "e5efc977591f704cdf55f75e98ff8fe7245dda6da995c9b544d5f66bc52c423d"
+    },
+    {
+      "path": "Native/PacketObservations.cs",
+      "sha256": "d31a4da47006995c33c8c1cb7198c4f3beb6b30b389d88e9d3a44a14349e7afa"
     },
     {
       "path": "Native/NativeControlCallback.cs",
@@ -363,7 +383,7 @@
     },
     {
       "path": "Native/NativeJumpLaunch.cs",
-      "sha256": "f43c2619bbf9720e03534600b408a8362a25a4519ed66671a11b913de6276799"
+      "sha256": "3e5213c5ec28aec02fddf0475e1ef146610c618a47fc3fc6e6582a22661d4f23"
     },
     {
       "path": "Native/NativeCrownTransport.cs",
@@ -383,23 +403,55 @@
     },
     {
       "path": "Pilot/Water/WaterSession.cs",
-      "sha256": "c84590b4d58ac7c698fdd9f52fa8a9185cd99d50450c58f23a6ca966169e1a8e"
+      "sha256": "e73961b64cfe5a41d0f807dc6b8206a7a85c38804b0b35b2637ae0111f13a295"
     },
     {
       "path": "Pilot/Water/WaterRoutes.cs",
-      "sha256": "686bc23d2666376e3445bbc8077c1db9be2ae3f31fc3d41d717a210568fec3ff"
+      "sha256": "116a4253082a50f9f6389dabee8bd4be608560d21ee12ec5356df1e4091eca1e"
+    },
+    {
+      "path": "Pilot/Courses/SectionRoutePlanner.cs",
+      "sha256": "b1221ef63bb86f38e07b956a831fa45ec37967ecd19397d52357be4a227d45ec"
+    },
+    {
+      "path": "Pilot/Courses/RoutePlanningTimes.cs",
+      "sha256": "1c5879fd12ff02869235431ce935760a8884ed439332a0067be066850efc98f5"
+    },
+    {
+      "path": "Pilot/Courses/RouteContinuation.cs",
+      "sha256": "1e3a1649559d4c5cf78d693c6fc613009c6377ed17628003e16d4f51c714ccf7"
+    },
+    {
+      "path": "Pilot/Courses/RingGoalSelection.cs",
+      "sha256": "a607e69cd3e148350e4cbcbca24cd27c5c2c067ab337708e1418a7031907b0ea"
     },
     {
       "path": "Pilot/Courses/PilotCourseGeometry.cs",
-      "sha256": "2594f3aac418dffeec8fef465ffbec0a72aee1b813388141f74275d0f7cdb257"
+      "sha256": "c88c20fc701bb9f253d94907d1c5d5aa7b22a902b35558e7b818963ab94374ab"
     },
     {
       "path": "Pilot/Courses/PilotCollisionMesh.cs",
       "sha256": "3c39aa8e3b0785c8462ec6a58f83054d13ca580a56b002e61d3782571ca613e3"
     },
     {
-      "path": "Native/PacketObservations.cs",
-      "sha256": "d31a4da47006995c33c8c1cb7198c4f3beb6b30b389d88e9d3a44a14349e7afa"
+      "path": "Pilot/Courses/OtherCourses.cs",
+      "sha256": "45b1664df71dc0b32936eae0548bece237ba0c6299ec56cf19878338a5ebd5c5"
+    },
+    {
+      "path": "Pilot/Courses/HitWetStep.cs",
+      "sha256": "12baf8e0b3db4f5ce645ad2005bda28079f85089b394a6c051bf23ffb2218e78"
+    },
+    {
+      "path": "Pilot/Courses/HitWaterRouteStep.cs",
+      "sha256": "7819b4edce2b2e9cb65e471f901e858d2f2f94293e86f7cf81651a3734f8a94a"
+    },
+    {
+      "path": "Pilot/Courses/HitTimedRoutes.Timing.cs",
+      "sha256": "485fda8d0c6f110f42b277971304db7c264d7fdd546d9ed06fc85e0246477ea0"
+    },
+    {
+      "path": "Pilot/Courses/HitSteeringStep.cs",
+      "sha256": "df54bab7bc18ba5d166ea819aefe9282a829921d6ce7ffbbb72e1d8795de00b7"
     },
     {
       "path": "Assets/ring-routes.json.gz",

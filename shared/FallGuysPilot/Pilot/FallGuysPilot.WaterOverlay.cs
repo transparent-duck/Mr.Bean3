@@ -23,6 +23,7 @@ public sealed partial class FallGuysPilot
     {
         DrawHazardOverlay();
         DrawRouteOverlay();
+        DrawActiveRouteOverlay();
         if (!waterOverlay || !water.HasPhase || Service.LocalPlayer == null) return;
         if (!water.Manual && course != MrBean.FallGuys.CourseId.Hit) return;
         var cache = water.Cache;
@@ -46,7 +47,7 @@ public sealed partial class FallGuysPilot
         for (int e = 0; e < plan.Edges.Length; ++e)
         {
             var edge = plan.Edges[e];
-            double departure = plan.Departures[e] + water.Epoch;
+            double departure = plan.Departures[e] + water.PlanEpoch;
             double wait = departure - Math.Max(arrival, now);
             if (wait > 0) Label(draw, from, $"等 {wait:F1}s", 0xff50cfff);
             for (int p = 0; p < edge.Points.Length; ++p)

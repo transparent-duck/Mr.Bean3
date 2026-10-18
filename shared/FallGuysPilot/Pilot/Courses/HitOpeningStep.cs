@@ -17,6 +17,10 @@ internal sealed class HitOpeningStep : Step
     private PathPassage? passage;
     private Vector3[] points = [];
     private double seenHit, nextRetry, progressAt, nextPositionCheck;
+    private long plannedRevision;
+    private int firstLeg, nextLeg;
+    private double departure;
+    private bool begun;
     private Vector2 progressPoint;
     private bool forced, waitingForForce;
     private double forceDeadline;
@@ -73,6 +77,16 @@ internal sealed class HitOpeningStep : Step
             waitingForForce = false;
         }
         if (c.Pose.Grounded && c.Pose.Feet.Z <= -194.8f) return true;
+        if (plan is { Found: true } && c.Pose.Grounded && plannedRevision != c.Hazards.RouteRevision)
+        {
+            long previousRevision = plannedRevision;
+            plannedRevision = c.Hazards.RouteRevision;
+            if (Geometry.Value.Graph(6).HasConflict(c.Hazards, plan, firstLeg, c.Pose.XZ, c.Now, previousRevision))
+            {
+                c.Log("course-new-danger", new { at = c.Now, step = Name, feet = c.Pose.Feet });
+                Select(c);
+            }
+        }
         bool displaced = false;
         if (c.Pose.Grounded && passage != null && c.Now >= nextPositionCheck)
         {
@@ -84,38 +98,67 @@ internal sealed class HitOpeningStep : Step
                 float t = delta.LengthSquared() == 0 ? 0 : Math.Clamp(Vector2.Dot(c.Pose.XZ - a, delta) / delta.LengthSquared(), 0, 1);
                 nearest = Math.Min(nearest, Vector2.DistanceSquared(c.Pose.XZ, a + t * delta));
             }
-            displaced = nearest > 1 || c.Now - progressAt > 2.5;
+            displaced = nearest > 1 || c.Now >= departure && c.Now - progressAt > 2.5;
         }
-        if (c.Pose.Grounded && c.Now >= nextRetry &&
+        if (c.Pose.Grounded && (c.Now >= nextRetry || plannedRevision != c.Hazards.RouteRevision) &&
             (plan is not { Found: true } || seenHit != c.LastHitAt || displaced)) Select(c);
         if (Vector2.DistanceSquared(progressPoint, c.Pose.XZ) > .01f)
         { progressPoint = c.Pose.XZ; progressAt = c.Now; }
         if (passage == null) { c.Act.Hold(); return false; }
-        return passage.Follow(c);
+        if (!begun && c.Pose.Grounded && c.Now > departure + .12)
+        {
+            c.Log("course-retime", new { at = c.Now, step = Name, late = c.Now - departure, feet = c.Pose.Feet });
+            Select(c);
+            if (passage == null) { c.Act.Hold(); return false; }
+        }
+        if (c.Now < departure) { c.Act.Hold(); progressAt = c.Now; return false; }
+        if (!begun) { passage.Begin(c); begun = true; }
+        if (!passage.Follow(c)) return false;
+        if (nextLeg >= plan!.Legs.Length) return true;
+        SetPassage(c);
+        if (c.Now >= departure) { passage!.Begin(c); begun = true; passage.Follow(c); }
+        else c.Act.Hold();
+        return false;
     }
 
     private void Select(PilotContext c)
     {
+        c.Act.ClearJump();
         var watch = Stopwatch.GetTimestamp();
         var data = Geometry.Value;
         plan = data.Graph(6).Search(c.Hazards, c.Pose.XZ, c.Now, true,
             sourceEdges: data.Connectors(c.Pose, 6));
         seenHit = c.LastHitAt; nextRetry = c.Now + .25;
+        plannedRevision = c.Hazards.RouteRevision;
         progressPoint = c.Pose.XZ; progressAt = c.Now;
+        firstLeg = nextLeg = 0; passage = null; points = [];
+        if (plan.Found && plan.Legs.Length > 0) SetPassage(c);
+        c.Log("hit-opening-plan", new { at = c.Now, start = c.Pose.Feet, plan.Found, plan.Arrival, plan.Expanded,
+            planningMs = Stopwatch.GetElapsedTime(watch).TotalMilliseconds, points, jumps = passage?.JumpFrom ?? [],
+            route = plan.Legs.Select(l => new { l.Edge.From, l.Edge.To, l.Departure }).ToArray() });
+    }
+
+    private void SetPassage(PilotContext c)
+    {
+        begun = false;
+        firstLeg = nextLeg;
+        departure = plan!.Legs[nextLeg].Departure;
         var path = new List<Vector3>(); var jumps = new List<int>();
-        foreach (var leg in plan.Legs)
+        while (nextLeg < plan.Legs.Length)
+        {
+            var leg = plan.Legs[nextLeg];
             foreach (var move in (PilotCourseGeometry.Move[])leg.Edge.Motion!)
             {
                 if (path.Count == 0 || path[^1] != move.Path[0]) path.Add(move.Path[0]);
                 if (move.Kind == "jump") jumps.Add(path.Count - 1);
                 path.AddRange(move.Path.Skip(1));
             }
+            ++nextLeg;
+            if (nextLeg < plan.Legs.Length && plan.Legs[nextLeg].Departure > leg.Departure + leg.Edge.Duration + 1e-8) break;
+        }
         points = path.ToArray();
         passage = plan.Found && points.Length > 0 ? new PathPassage
-            { Name = Name, Points = points, JumpFrom = jumps.ToArray(), ArriveRadius = .08f } : null;
-        passage?.Begin(c);
-        c.Log("hit-opening-plan", new { at = c.Now, start = c.Pose.Feet, plan.Found, plan.Arrival, plan.Expanded,
-            planningMs = Stopwatch.GetElapsedTime(watch).TotalMilliseconds, points, jumps,
-            route = plan.Legs.Select(l => new { l.Edge.From, l.Edge.To }).ToArray() });
+            { Name = Name, Points = points, JumpFrom = jumps.ToArray(), ArriveRadius = .12f } : null;
+        progressPoint = c.Pose.XZ; progressAt = c.Now;
     }
 }

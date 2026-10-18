@@ -37,6 +37,7 @@ public sealed unsafe class DirectMovementController : IDisposable
     private bool? directionalInput;
     private Vector3? steeringWorldInput;
     private Vector2? ordinaryWorldInput;
+    private float? facingInput;
     public bool IsAutoMove { get; set; } = true;
     public float Precision { get; set; } = 0.01f;
     public bool ClampFinalStep { get; set; }
@@ -105,7 +106,7 @@ public sealed unsafe class DirectMovementController : IDisposable
         set
         {
             if (!float.IsFinite(value.X) || !float.IsFinite(value.Y) || !float.IsFinite(value.Z)) throw new ArgumentException("Invalid movement destination.");
-            destination = value; hold = false; directionalInput = null; steeringWorldInput = null; ordinaryWorldInput = null; Refresh();
+            destination = value; hold = false; directionalInput = null; steeringWorldInput = null; ordinaryWorldInput = null; facingInput = null; Refresh();
         }
     }
 
@@ -122,6 +123,7 @@ public sealed unsafe class DirectMovementController : IDisposable
         hold = true;
         steeringWorldInput = null;
         ordinaryWorldInput = null;
+        facingInput = null;
         directionalInput = false;
         Refresh();
         Enabled = true;
@@ -143,7 +145,20 @@ public sealed unsafe class DirectMovementController : IDisposable
         if (!float.IsFinite(direction.X) || !float.IsFinite(direction.Y) || direction == Vector2.Zero)
             throw new ArgumentException("Ordinary movement requires a finite world direction.");
         ordinaryWorldInput = Vector2.Normalize(direction);
+        facingInput = null;
         steeringWorldInput = null;
+        hold = false;
+        directionalInput = true;
+        Refresh();
+        Enabled = true;
+        backend!.EnableDirectionGate();
+    }
+    public void SetFacingInput(float heading)
+    {
+        if (!float.IsFinite(heading)) throw new ArgumentException("Facing requires a finite heading.");
+        facingInput = heading;
+        steeringWorldInput = null;
+        ordinaryWorldInput = null;
         hold = false;
         directionalInput = true;
         Refresh();
@@ -176,6 +191,7 @@ public sealed unsafe class DirectMovementController : IDisposable
         directionalInput = null;
         steeringWorldInput = null;
         ordinaryWorldInput = null;
+        facingInput = null;
         backend?.Disable();
     }
     public void Dispose()
@@ -289,7 +305,7 @@ public sealed unsafe class DirectMovementController : IDisposable
             var c = Current;
             if (c == null) return;
             c.LastUserInput = new(*left, *forward);
-            if (c.CancelOnManualInput && (*left != 0 || *forward != 0) && (c.directionalInput == null || c.ObserveUserInput))
+            if (c.CancelOnManualInput && (*left != 0 || *forward != 0 || c.facingInput != null && *turn != 0) && (c.directionalInput == null || c.ObserveUserInput))
             {
                 c.WasCancelledByUser = true;
                 c.Release();
@@ -311,6 +327,17 @@ public sealed unsafe class DirectMovementController : IDisposable
                 *left=*forward=*turn=0;c.LastAppliedInput=Vector2.Zero;c.AfterWalkInput?.Invoke();return;
             }
             if (!ControlsAvailable) {c.LastAppliedInput=new(*left,*forward);return;}
+            if (c.facingInput is { } heading && Service.LocalPlayer is { } turning)
+            {
+                float error = MathF.IEEERemainder(heading - turning.Rotation, MathF.Tau);
+                var framework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework.Instance();
+                float dt = framework != null ? framework->FrameDeltaTime : 1f / 60;
+                *left = *forward = 0;
+                *turn = Math.Abs(error) <= .015f ? 0 : Math.Clamp(error / Math.Max(.02f, 2 * dt), -1, 1);
+                c.LastAppliedInput = Vector2.Zero;
+                c.AfterWalkInput?.Invoke();
+                return;
+            }
             if (!c.IsAutoMove && (*left != 0 || *forward != 0)) return;
             if(c.ordinaryWorldInput is { } world && Service.LocalPlayer is { } actor)
             {

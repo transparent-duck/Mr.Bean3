@@ -258,6 +258,45 @@ internal sealed class WaterRoutes
         routesByEntry = Routes.GroupBy(r => r.Entry).ToDictionary(g => g.Key, g => g.ToArray());
     }
 
+    internal bool HasConflict(WaterPlan plan, WaterPoint feet, double worldNow, double planEpoch,
+        int pattern, double epoch)
+    {
+        PreparePattern(pattern);
+        bool Overlap(WaterInterval[] spans, double start, double end)
+        {
+            if (end < start) return false;
+            foreach (var span in spans)
+            {
+                double cycle = Math.Ceiling((start - span.End) / Model.Period);
+                if (span.Start + cycle * Model.Period <= end) return true;
+            }
+            return false;
+        }
+        bool Hold(WaterPoint position, double start, double end)
+        {
+            if (end < start) return false;
+            for (int station = 0; station < Model.Stations.Length; ++station)
+                if (position.Distance(Model.Stations[station]) <= Model.Radius &&
+                    Overlap(stationForbidden[pattern][station], start - epoch, end - epoch)) return true;
+            return false;
+        }
+        double at = worldNow;
+        var point = feet;
+        for (int i = 0; i < plan.Edges.Length; ++i)
+        {
+            var edge = plan.Edges[i];
+            double departure = plan.Departures[i] + planEpoch;
+            if (Hold(point, at, departure)) return true;
+            foreach (var exposure in edge.Exposures)
+                if (Overlap(stationForbidden[pattern][exposure.Station],
+                    Math.Max(worldNow, departure + exposure.Start) - epoch,
+                    departure + exposure.End - epoch)) return true;
+            at = Math.Max(worldNow, departure + edge.Duration);
+            point = edge.Points[^1];
+        }
+        return Hold(point, at, plan.Arrival + planEpoch);
+    }
+
     /// <summary>Drawing uses the same periodic interval compiler as path collision checks.</summary>
     public (bool Active, double Seconds) StationState(int pattern, int station, double at)
     {
@@ -485,7 +524,7 @@ internal sealed class WaterRoutes
         }
     }
 
-    private WaterEdge[] Connectors(WaterPoint start)
+    internal WaterEdge[] Connectors(WaterPoint start)
     {
         // Geometry and phase-relative contacts do not change while the feet
         // stay at this exact point. Reuse them for retries or phase queries.

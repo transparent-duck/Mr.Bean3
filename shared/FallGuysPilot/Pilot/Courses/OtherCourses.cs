@@ -21,16 +21,36 @@ internal abstract class GraphCourse : CourseScript
 
 // Each search starts at the actual feet and ends at the current course goal.
 // Receipts do not replace an executing race route. Hits, displaced feet and
-// changed Crystal carry state relocalize; Ring advances its goal on arrival.
-internal sealed class CourseRouteStep(CourseId course) : Step
+// changed Crystal carry state relocalize; Ring follows the observed wind angle.
+internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposable
 {
     private readonly PilotCourseGeometry data = PilotCourseGeometry.Load(course.ToString().ToLowerInvariant());
     private HitTimedRoutes graph = null!;
-    private HitTimedRoutes.Plan? plan;
+    private HitTimedRoutes.Plan? activePlan;
+    private HitTimedRoutes.Plan? plan
+    {
+        get => activePlan;
+        set
+        {
+            if (value is { Found: true } && !ReferenceEquals(value, activePlan)) ++RouteNumber;
+            activePlan = value;
+        }
+    }
+    internal HitTimedRoutes.Plan? ActivePlan => plan;
+    internal long RouteNumber { get; private set; }
+    internal long SearchNumber { get; private set; }
+    internal int ActiveLeg => legIndex;
+    internal int ActiveMove => moveIndex;
+    internal bool Searching => sections?.Pending == true || background?.Pending == true;
+    internal bool AwaitingHandoff => routeQuery != null && preparedRoute != null;
+    internal bool Forecasting => sections?.Pending == true && requestedForecast;
+    internal double WaitUntil => plan is { Found: true } && legIndex < plan.Legs.Length && !moveStarted
+        ? plan.Legs[legIndex].Departure : 0;
+    internal string SectionName => sections == null ? course.ToString() : data.Sections[sectionIndex].Name;
     private PilotCourseGeometry.Move[] moves = [];
     private Passage? passage;
     private int legIndex, moveIndex, goal = -1;
-    private double seenHit, progressAt, nextRetry, moveAt, moveDuration;
+    private double seenHit, progressAt, nextRetry, moveAt, moveDuration, moveEndsAt;
     private Vector2 progressPoint;
     private bool moveStarted;
     private bool nativeIce, wasOnIce;
@@ -46,12 +66,88 @@ internal sealed class CourseRouteStep(CourseId course) : Step
     private bool windPending, windNative;
     private double windExecution = 1.5;
     private int ringDirection = -1;
+    private float ringGoalHeading = float.NaN;
+    private RingGoalSelection? ringGoals;
     private double seenDelivery = double.NegativeInfinity;
     private bool returnToLower;
     private HashSet<int>? lowerReturnGoals;
+    private readonly HitForcedMarch march = new();
+    private bool nativePaused;
+    private double nativeReadyAt = double.NaN;
+    private Vector2 nativeReadyFeet;
 
     public override bool ObserveMotion(PilotContext c)
     {
+        PollSections(c);
+        PollBackground(c, false);
+        if (course == CourseId.Hit)
+        {
+            c.Water.Observe(c);
+            bool wasForced = march.Native;
+            if (march.Observe(c))
+            {
+                if (wasForced && !march.Native)
+                {
+                    if (seenHit == c.LastHitAt && march.Matches(plan, c.Pose.XZ) && Math.Abs(c.Now - march.ReadyAt) <= .12)
+                    {
+                        moves = (PilotCourseGeometry.Move[])plan!.Legs[0].Edge.Motion!;
+                        legIndex = 0;
+                        moveIndex = Array.FindIndex(moves, m => m.Kind == "forced") + 1;
+                        if (moveIndex >= moves.Length) { legIndex = 1; moves = []; moveIndex = 0; }
+                        moveStarted = false; passage = null;
+                        seenHit = c.LastHitAt;
+                        if (plannedRevision != c.Hazards.RouteRevision &&
+                            graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, plannedRevision)) plan = null;
+                    }
+                    else plan = null;
+                    c.Log("hit-forced-release", new { at = c.Now, feet = c.Pose.Feet, reused = plan != null });
+                }
+                else if (march.Native)
+                {
+                    if (seenHit != c.LastHitAt || !march.Matches(plan)) { plan = null; Select(c); }
+                }
+                // A warning changes a future motion; it must not cancel a jump
+                // already in flight. Observe reports the landing boundary again.
+                else if (c.Pose.Grounded && !march.IncludesWarning(plan)) plan = null;
+            }
+            if (march.Native)
+            {
+                if (plan is { Found: true } && plannedRevision != c.Hazards.RouteRevision)
+                {
+                    long previous = plannedRevision;
+                    plannedRevision = c.Hazards.RouteRevision;
+                    if (graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, previous)) Select(c);
+                }
+                return false;
+            }
+            if (c.Pose.Locked)
+            {
+                if (c.Pose.Raw.SteeringClock is { CurrentTimelineId: 8514,
+                        CurrentTimestamp: { } ticks, ActualSchedulerSpeed: { } rate } && rate > .001f)
+                {
+                    double ready = c.Now + Math.Max(0, 65 - ticks) / (30 * rate);
+                    if (!nativePaused || !double.IsFinite(nativeReadyAt) || Math.Abs(ready - nativeReadyAt) > .12 ||
+                        Vector2.DistanceSquared(c.Pose.XZ, nativeReadyFeet) > .01f)
+                    {
+                        nativeReadyAt = ready; nativeReadyFeet = c.Pose.XZ;
+                        if (!TrackRecovery(c)) Select(c, ready);
+                    }
+                }
+                else nativeReadyAt = double.NaN;
+                nativePaused = true;
+            }
+            else if (nativePaused)
+            {
+                nativePaused = false;
+                bool changed = !double.IsFinite(nativeReadyAt) || Math.Abs(c.Now - nativeReadyAt) > .12 ||
+                    Vector2.DistanceSquared(c.Pose.XZ, nativeReadyFeet) > .0225f;
+                if (!changed && plan is { Found: true } && plannedRevision != c.Hazards.RouteRevision)
+                    changed = graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, plannedRevision);
+                seenHit = c.LastHitAt;
+                if (changed) plan = null;
+            }
+            PrepareNextSection(c);
+        }
         if (c.Pose.Motion == MotionKind.Ice) nativeIce = true;
         if (course != CourseId.Crystal) return false;
         if (c.LastWindHitAt > windHit)
@@ -76,9 +172,14 @@ internal sealed class CourseRouteStep(CourseId course) : Step
     public override void Enter(PilotContext c)
     {
         CourseHazards.Install(course, c.Hazards);
-        c.Act.KeepJumpSpeed = course == CourseId.Crystal;
+        if (course == CourseId.Hit) c.Water.Attach(c.Hazards);
         c.Act.ImmediateJump = course == CourseId.Ring;
         graph = data.Graph(speed); seenHit = c.LastHitAt; plan = null;
+        sections?.Dispose();
+        if (data.Sections.Length > 0) sections = new(data);
+        background?.Dispose();
+        background = new(course);
+        CancelBackground(); replanWanted = false; requestAfter = 0;
         if (course == CourseId.Crystal)
             lowerReturnGoals = Enumerable.Range(0, data.Nodes.Length)
                 .Where(i => data.Nodes[i].ReturnFloor).ToHashSet();
@@ -102,6 +203,7 @@ internal sealed class CourseRouteStep(CourseId course) : Step
     }
     private bool TickOnce(PilotContext c)
     {
+        PollSections(c);
         bool onIce = c.Pose.Has(3693);
         if (course == CourseId.Knight && c.Pose.Grounded && onIce != wasOnIce)
         {
@@ -160,7 +262,11 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         if (course == CourseId.Ring && c.Hazards.RingWind is { Rate: > .001f or < -.001f } axis &&
             Math.Sign(axis.Rate) != ringDirection)
         { ringDirection = Math.Sign(axis.Rate); plan = null; }
-        if (course is CourseId.Ring or CourseId.Crystal or CourseId.Crown && plan is { Found: true } && c.Pose.Grounded &&
+        if (course == CourseId.Ring && c.Hazards.RingWind is { } wind &&
+            float.IsFinite(ringGoalHeading) && Math.Abs(Geo.WrapAngle(wind.Heading - ringGoalHeading)) > .01f)
+            RequestBackground(c);
+        ObserveRouteClock(c);
+        if (plan is { Found: true } && c.Pose.Grounded &&
             plannedRevision != c.Hazards.RouteRevision)
         {
             long previousRevision = plannedRevision;
@@ -168,7 +274,8 @@ internal sealed class CourseRouteStep(CourseId course) : Step
             if (graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, previousRevision))
             {
                 c.Log("course-new-danger", new { at = c.Now, course, feet = c.Pose.Feet });
-                plan = null;
+                if (background != null) RequestBackground(c);
+                else if (moveStarted || moveIndex != 0 || !Reschedule(c)) plan = null;
             }
         }
         float available = c.Pose.Raw.Walk?.AvailableTargetSpeed ?? 6;
@@ -181,8 +288,16 @@ internal sealed class CourseRouteStep(CourseId course) : Step
                 c.Log("crystal-goal", new { at = c.Now, carry = currentGoal, previous = goal,
                     destination = currentGoal switch { 1 => 10060979, 2 => 10060978, 3 => 10060980, _ => 10060977 },
                     feet = c.Pose.Feet });
+            if (seenHit != c.LastHitAt || goal != currentGoal || speed != actualSpeed || displaced)
+            { CancelBackground(); plan = null; }
             goal = currentGoal; speed = actualSpeed; Select(c);
         }
+        if (background != null)
+        {
+            PollBackground(c, true);
+            if (replanWanted && routeQuery == null && c.Now >= requestAfter) BeginBackground(c, plan is { Found: true });
+        }
+        if (plan == null) { c.Act.Hold(); progressAt = c.Now; return false; }
         if (Vector2.Distance(progressPoint, c.Pose.XZ) > .1f) { progressPoint = c.Pose.XZ; progressAt = c.Now; }
         if (!plan!.Found)
         {
@@ -191,20 +306,26 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         }
         if (plan.Legs.Length == 0 || legIndex >= plan.Legs.Length)
         {
+            if (sections != null && sectionIndex + 1 < data.Sections.Length)
+                return AdvanceSection(c);
             if (course == CourseId.Ring && plan.Legs.Length > 0)
             { plan = null; return true; }
             c.Act.Hold(); progressAt = c.Now;
             return false;
         }
+        PrepareNextSection(c);
         var leg = plan.Legs[legIndex];
         if (moves.Length == 0) { moves = (PilotCourseGeometry.Move[])leg.Edge.Motion!; moveIndex = 0; }
         var move = moves[moveIndex];
-        if (!moveStarted && moveIndex == 0 && c.Now > leg.Departure + .12 && c.Pose.Grounded)
+        if (routeQuery == null && !moveStarted && moveIndex == 0 && c.Now > leg.Departure + .12 && c.Pose.Grounded)
         {
             c.Log("course-retime", new { at = c.Now, late = c.Now - leg.Departure, feet = c.Pose.Feet });
-            Select(c); return true;
+            if (!Reschedule(c)) Select(c);
+            return true;
         }
-        if (c.Now < leg.Departure)
+        bool canWait = leg.Edge.From < graph.Nodes.Count ? graph.Nodes[leg.Edge.From].CanWait :
+            course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose);
+        if (c.Now < leg.Departure && canWait)
         {
             if (c.Pose.Has(3694) && move.Kind == "arrow") c.Act.Arrow(Geo.Toward(move.Path[0].XZ(), move.Path[^1].XZ()), leg.Departure);
             else c.Act.Hold();
@@ -213,21 +334,39 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         if (!moveStarted)
         {
             moveDuration = PilotCourseGeometry.Trajectory([move], speed)[^1].Time;
+            if (move.Kind is "prepare-turn" or "forced-wait" or "forced")
+            {
+                moveEndsAt = leg.Departure;
+                for (int i = 0; i <= moveIndex; ++i)
+                    moveEndsAt += PilotCourseGeometry.Trajectory([moves[i]], speed)[^1].Time;
+            }
             if (hadBomb && move.Kind is "jump" or "ice" && c.Now < bombExpires + BombTail &&
                 c.Now + moveDuration >= bombExpires - BombLead)
             { c.Act.Hold(); progressAt = c.Now; return false; }
             moveAt = c.Now;
             var points = move.Path;
-            passage = new PathPassage { Name = Name + ":" + move.Kind, Points = points,
-                JumpFrom = move.Kind == "jump" ? [0] : [],
-                // Crown-045749 stopped just outside the rotated launch box
-                // at the ordinary 0.12 m radius. Its endpoint is inside it.
-                ArriveRadius = course == CourseId.Crown && data.Nodes[leg.Edge.To].Goal ? .03f : .12f };
+            passage = move.Kind == "steering" ? new HitSteeringPath { Name = Name + ":steering", Points = points } :
+                new PathPassage { Name = Name + ":" + move.Kind, Points = points,
+                    JumpFrom = move.Kind == "jump" ? [0] : [], ArriveRadius = .12f };
             passage.Begin(c); moveStarted = true;
             c.Log("course-motion", new { course, at = c.Now, legIndex, moveIndex, move.Kind, feet = c.Pose.Feet });
         }
         bool done;
         if (move.Kind == "join") done = true;
+        else if (move.Kind == "recovery")
+        {
+            done = c.Now >= leg.Departure + moveDuration;
+            if (!done) { c.Act.Hold(); return false; }
+        }
+        else if (move.Kind is "prepare-turn" or "forced-wait" or "forced")
+        {
+            if (move.Facing is { } heading) c.Act.Face(heading);
+            else c.Act.Hold();
+            progressAt = c.Now;
+            done = move.Kind != "forced" && c.Now >= moveEndsAt &&
+                (move.Facing == null || Math.Abs(Geo.WrapAngle(c.Pose.Facing - move.Facing.Value)) <= .02f);
+            if (!done) return false;
+        }
         else if (move.Kind == "arrow")
         {
             var points = move.Path; var target = points[^1].XZ();
@@ -265,19 +404,55 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         }
         if (!done) return false;
         moveStarted = false; passage = null;
-        if (++moveIndex == moves.Length) { ++legIndex; moves = []; }
+        if (++moveIndex == moves.Length)
+        { ++legIndex; moves = []; ObserveRouteArrival(c, leg); }
         progressAt = c.Now;
         return true;
     }
     public override Vector2? Aim(PilotContext c) => passage?.Aim(c);
 
-    private void Select(PilotContext c)
+    private bool Reschedule(PilotContext c, double? readyAt = null)
     {
+        if (plan is not { Found: true } || course == CourseId.Hit && march.Pending) return false;
+        if (background != null)
+        { CancelBackground(); BeginBackground(c, true, readyAt); return true; }
+        long began = Stopwatch.GetTimestamp();
+        ++SearchNumber;
+        var result = graph.Reschedule(c.Hazards, plan, legIndex, c.Pose.XZ, Math.Max(c.Now, readyAt ?? c.Now),
+            course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose),
+            immobile: hadBomb ? new(bombExpires - BombLead, bombExpires + BombTail) : null,
+            arrowHeading: c.Pose.Has(3694) ? c.Pose.Raw.ArrowDirection : null, arrowRate: c.Act.ArrowRate,
+            windExecution: windExecution, waitHorizon: course == CourseId.Crown ? 45 : 12);
+        double elapsed = Stopwatch.GetElapsedTime(began).TotalSeconds;
+        c.Now += elapsed;
+        if (!result.Found) return false;
+        plan = result;
+        legIndex = moveIndex = 0; moves = []; moveStarted = false; passage = null;
+        plannedRevision = c.Hazards.RouteRevision;
+        c.Log("course-reschedule", new { at = c.Now, course, elapsed, plan.Arrival, legs = plan.Legs.Length });
+        return true;
+    }
+
+    private void Select(PilotContext c, double? readyAt = null)
+    {
+        if (sections != null) { if (routeQuery == null) SelectSection(c, readyAt); return; }
+        if (background != null)
+        {
+            graph = data.Graph(speed, course == CourseId.Crystal && goal > 0);
+            graph.UseWaitingSearch = course == CourseId.Crown;
+            if (routeQuery != null || c.Now >= requestAfter) BeginBackground(c, false, readyAt);
+            return;
+        }
+        c.Act.ClearJump();
         long started = Stopwatch.GetTimestamp();
         graph = data.Graph(speed, course == CourseId.Crystal && goal > 0);
         graph.UseWaitingSearch = course == CourseId.Crown;
-        var connectors = data.Connectors(c.Pose, speed).ToArray();
-        plan = graph.Search(c.Hazards, c.Pose.XZ, c.Now, true,
+        double selectedAt = c.Now;
+        bool forcedMotion = course == CourseId.Hit && march.Pending && (c.Pose.Grounded || march.Native);
+        var connectors = (forcedMotion ? march.Connectors(data, c, speed) : data.Connectors(c.Pose, speed)).ToArray();
+        ++SearchNumber;
+        plan = graph.Search(c.Hazards, c.Pose.XZ, readyAt ?? c.Now,
+            !forcedMotion && (course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose)),
             sourceEdges: connectors, goals: course == CourseId.Ring ? RingGoals(c) :
                 course == CourseId.Crystal && goal == 0 && returnToLower ? lowerReturnGoals :
                 goal >= 0 ? new HashSet<int> { goal } : null,
@@ -286,6 +461,10 @@ internal sealed class CourseRouteStep(CourseId course) : Step
             // Crown spans entrance circles, hammers and the upper waves. In
             // Crown-034151 a valid 46.21 s route exceeded shortest + 12 s.
             windExecution: windExecution, waitHorizon: course == CourseId.Crown ? 45 : 12);
+        c.Now += Stopwatch.GetElapsedTime(started).TotalSeconds;
+        legIndex = 0;
+        if (!forcedMotion && plan.Found && plan.Legs.Length > 0 && c.Now > plan.Legs[0].Departure)
+            if (!Reschedule(c, readyAt)) plan = plan with { Found = false };
         if (course == CourseId.Crystal && plan.Found)
             for (int i = 1; i < plan.Legs.Length; ++i)
             {
@@ -298,7 +477,7 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         seenHit = c.LastHitAt; plannedRevision = c.Hazards.RouteRevision;
         nextRetry = 0;
         legIndex = moveIndex = 0; moves = []; moveStarted = false; passage = null;
-        c.Log("course-ctc-plan", new { course, at = c.Now, start = c.Pose.Feet, goal, speed, returnToLower,
+        c.Log("course-ctc-plan", new { course, at = c.Now, selectedAt, start = c.Pose.Feet, goal, speed, returnToLower,
             arrowHeading = c.Pose.Raw.ArrowDirection, arrowRate = c.Act.ArrowRate,
             plan.Arrival, plan.Found, plan.Expanded, connectors = connectors.Length,
             planningMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds,
@@ -309,28 +488,20 @@ internal sealed class CourseRouteStep(CourseId course) : Step
         var center = new Vector2(200, -125);
         float angle = Geo.Heading(c.Pose.XZ - center);
         float advance = MathF.PI / 3;
+        float target = angle + ringDirection * advance;
         float? frontGap = null;
         if (c.Hazards.RingWind is { } axis)
         {
-            float heading = axis.Heading + axis.Rate * (float)(c.Now - axis.At);
-            float gap = (heading - angle) * ringDirection % MathF.Tau;
+            ringGoalHeading = axis.Heading;
+            float gap = (axis.Heading - angle) * ringDirection % MathF.Tau;
             if (gap < 0) gap += MathF.Tau;
             frontGap = gap;
-            // Chase the leading boundary while retaining angular clearance.
-            // A short forward target follows its motion; CTC decides whether
-            // the actual walk/jump can reach it without crossing the wind.
-            advance = Math.Clamp(gap + Math.Abs(axis.Rate) * 2 - .45f, .35f, MathF.PI / 3);
+            // Follow the latest received angle, without advancing it to a
+            // guessed arrival time. Timed hazards still check the whole route.
+            advance = Math.Min(gap - .45f, MathF.PI / 3);
+            target = angle + ringDirection * advance;
         }
-        float target = angle + ringDirection * advance;
-        var goals = new HashSet<int>();
-        int nearest = 0; float nearestError = float.PositiveInfinity;
-        for (int i = 0; i < data.Nodes.Length; ++i)
-        {
-            float error = Math.Abs(Geo.WrapAngle(Geo.Heading(data.Nodes[i].Feet.XZ() - center) - target));
-            if (error < nearestError) { nearestError = error; nearest = i; }
-            if (error < .13f) goals.Add(i);
-        }
-        if (goals.Count == 0) goals.Add(nearest);
+        var goals = (ringGoals ??= new(data)).Select(target);
         c.Log("ring-target", new { at = c.Now, feet = c.Pose.Feet, angle, target, advance,
             direction = ringDirection, frontGap, wind = c.Hazards.RingWind, candidates = goals.Count });
         return goals;

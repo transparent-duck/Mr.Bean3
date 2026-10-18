@@ -52,7 +52,7 @@ public sealed partial class FallGuysPilot
         }
         double now = PilotPose.Now;
         water.Calculate(new(player.Position.X, player.Position.Z), now);
-        waterDebugStatus = $"計算完成：{water.QueryMs:F3} ms；預計 {(water.Plan?.Arrival + water.Epoch - now) ?? 0:F2} 秒。";
+        waterDebugStatus = $"計算完成：{water.QueryMs:F3} ms；預計 {(water.Plan?.Arrival + water.PlanEpoch - now) ?? 0:F2} 秒。";
         Service.Log.Information("[FallGuysPilot.Water] " + System.Text.Json.JsonSerializer.Serialize(water.Snapshot(now), Json));
         if (!run) return;
         Directory.CreateDirectory(directory);

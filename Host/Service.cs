@@ -25,6 +25,7 @@ namespace MrBean.Host
     {
         public bool BlundervilleEnabled;
         public bool BlundervilleAutoLoop;
+        public bool FallGuysShowActiveRoute { get; set; }
         public void Save() { }
     }
 }

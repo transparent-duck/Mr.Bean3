@@ -16,6 +16,7 @@ internal sealed class PilotContext
     public double LastWindHitAt = double.NegativeInfinity;
     public double LastDeliveryAt = double.NegativeInfinity;
     public required Water.WaterSession Water { get; init; }
+    public Courses.RoutePlanningTimes PlanningTimes { get; init; } = new();
 }
 
 /// <summary>Axis-aligned box used to decide which step owns the actor's current position.</summary>
@@ -166,7 +167,7 @@ internal abstract class CourseScript
 }
 
 /// <summary>Executes a script: global native-state handling, relocalization, step progression.</summary>
-internal sealed class PilotEngine
+internal sealed class PilotEngine : IDisposable
 {
     // Effective radius added to every AoE footprint. Waiting 5.48 m from a radius-5 water pulse
     // was never hit in Hit-20261014-093642, so the effective pad is below 0.48 m.
@@ -177,6 +178,10 @@ internal sealed class PilotEngine
     public int Index { get; private set; }
     public Step? Current => Index < steps.Length ? steps[Index] : null;
     public int Count => steps.Length;
+    public void Dispose()
+    {
+        foreach (var step in steps) if (step is IDisposable owned) owned.Dispose();
+    }
 
     public PilotEngine(CourseScript script, PilotPose start, PilotContext c)
     {
@@ -190,8 +195,7 @@ internal sealed class PilotEngine
     {
         var pose = c.Pose;
         if (Current?.ObserveMotion(c) == true) return;
-        c.Act.ForcedPreference = Current?.Aim(c) is { } aim && aim != Vector2.Zero ? Geo.Heading(aim) : null;
-        if (pose.Locked || pose.Motion is MotionKind.Forced or MotionKind.Ice) { c.Act.Hold(); return; }
+        if (pose.Locked || pose.Has(3737) || pose.Motion is MotionKind.Forced or MotionKind.Ice) { c.Act.Hold(); return; }
         if (script.Override(c, this)) return;
         // Forward relocalization is immediate; going back (knockback, respawn) needs a dwell so
         // that a step ending a little early (arrival radius) does not bounce to its predecessor.

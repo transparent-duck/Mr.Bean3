@@ -24,6 +24,8 @@ internal sealed class PilotCourseGeometry
     {
         public string Kind { get; set; } = "walk";
         public float[][] Points { get; set; } = [];
+        internal HitTimedRoutes.Point[]? TimedPath;
+        internal float? Facing;
         private Vector3[]? path;
         public Vector3[] Path => path ??= Points.Select(p => new Vector3(p[0], p[1], p[2])).ToArray();
         public static Move Walk(Vector3 a, Vector3 b) => new()
@@ -38,8 +40,15 @@ internal sealed class PilotCourseGeometry
     }
     public Vertex[] Nodes { get; set; } = [];
     public Route[] Edges { get; set; } = [];
+    internal sealed record Section(string Name, int[] Nodes, int[] Entries, int[] Exits);
+    internal Section[] Sections = [];
     public HitGround Ground = null!;
     private bool knight;
+    internal Func<PilotPose, float, IEnumerable<HitTimedRoutes.Edge>>? CustomConnectors;
+    internal Func<Vector2, float?>? CustomHeight;
+    internal Func<Vector3, Vector2, bool>? CustomClear;
+    internal float? Height(Vector2 point) => CustomHeight != null ? CustomHeight(point) : Ground.At(point);
+    internal bool Clear(Vector3 from, Vector2 to) => CustomClear != null ? CustomClear(from, to) : Ground.ClearFromGrounded(from, to);
     private readonly Dictionary<(float, bool), HitTimedRoutes> graphs = [];
 
     public static T Read<T>(string name)
@@ -50,6 +59,7 @@ internal sealed class PilotCourseGeometry
     }
     public static PilotCourseGeometry Load(string name)
     {
+        if (name == "hit") return HitCourseGeometry.Load();
         var data = Read<PilotCourseGeometry>($"{name}-routes.json.gz");
         data.Ground = Read<HitGround>($"{name}-ground.json.gz");
         data.Ground.PrepareCollision();
@@ -63,7 +73,7 @@ internal sealed class PilotCourseGeometry
             Edges.Where(e => !carrying || !e.EmptyOnly).Select(e => Edge(e.From, e.To, e.Moves, speed)).ToArray(), Ground);
         graphs.Add((speed, carrying), graph); return graph;
     }
-    private HitTimedRoutes.Edge Edge(int from, int to, Move[] moves, float speed)
+    internal HitTimedRoutes.Edge Edge(int from, int to, Move[] moves, float speed)
     {
         var first = moves[0].Path; var last = moves[^1].Path;
         return new(from, to, Trajectory(moves, speed))
@@ -81,6 +91,13 @@ internal sealed class PilotCourseGeometry
         var result = new List<HitTimedRoutes.Point>(); double time = 0;
         foreach (var move in moves)
         {
+            if (move.TimedPath is { } timed)
+            {
+                if (result.Count == 0) result.Add(timed[0] with { Time = time });
+                foreach (var point in timed.Skip(1)) result.Add(point with { Time = time + point.Time });
+                time += timed[^1].Time;
+                continue;
+            }
             var path = move.Path;
             if (result.Count == 0) result.Add(new(path[0].XZ(), time));
             if (move.Kind == "ice")
@@ -106,6 +123,11 @@ internal sealed class PilotCourseGeometry
     }
     public IEnumerable<HitTimedRoutes.Edge> Connectors(PilotPose pose, float speed)
     {
+        if (CustomConnectors != null)
+        {
+            foreach (var edge in CustomConnectors(pose, speed)) yield return edge;
+            yield break;
+        }
         for (int to = 0; to < Nodes.Length; ++to)
         {
             var target = Nodes[to].Feet;

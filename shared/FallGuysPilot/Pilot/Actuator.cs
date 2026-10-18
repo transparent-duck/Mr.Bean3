@@ -21,7 +21,7 @@ internal sealed unsafe class Actuator : IDisposable
 
     public readonly DirectMovementController Movement = new("Fall Guys pilot")
         { ClampFinalStep = false, Precision = 0, CancelOnManualInput = true };
-    private readonly NativeJumpLaunch launch = new();
+    private readonly NativeJumpLaunch launch;
     private readonly NativeControlCallback callback = new();
     private double jumpArmedAt = double.NaN, lastNudgeAt;
     private bool jumpDispatched;
@@ -34,26 +34,29 @@ internal sealed unsafe class Actuator : IDisposable
     public double ArrowTurnSeconds { get; private set; }
     public double ArrowTurnRadians { get; private set; }
 
-    /// <summary>World heading that native forced movement (3737) should use when it starts or ticks.</summary>
-    public float? ForcedPreference { get; set; }
     /// <summary>Desired arrow heading. Native gain may write it once; later turns wait for rotation.</summary>
     public float? ArrowPreference { get; set; }
     public int Nudges { get; private set; }
     public float LargestNudge { get; private set; }
     public long Jumps { get; private set; }
-    public bool KeepJumpSpeed { get; set; }
     public bool ImmediateJump { get; set; }
     public double JumpDispatchAt { get; private set; }
     public Vector3 JumpDispatchFeet { get; private set; }
     public bool JumpAccepted { get; private set; }
     public float JumpSpeedBefore { get; private set; }
     public float JumpTargetSpeed { get; private set; }
+    public long AccelerationWrites => launch.AccelerationWrites;
+    public double AccelerationAt => launch.AccelerationAt;
+    public float AccelerationBefore => launch.AccelerationBefore;
+    public float AccelerationTarget => launch.AccelerationTarget;
+    public Vector3 AccelerationPosition => launch.AccelerationPosition;
     public string LastCommand { get; private set; } = "none";
     public bool CancelledByUser => Movement.WasCancelledByUser;
     public Exception? NativeFault => callback.Fault;
 
     public Actuator()
     {
+        launch = new(Movement);
         // Recreating the actuator inside an existing status is not a new entry.
         if (Service.LocalPlayer is { } player)
         {
@@ -66,11 +69,10 @@ internal sealed unsafe class Actuator : IDisposable
         callback.Step = OnEligibleInput;
         callback.ArrowGain = OnArrowGain;
         callback.Commit = ObserveArrowTurn;
-        callback.ForcedStep = () => { if (ForcedPreference is { } h) WriteForced(h); };
         callback.ForcedGain = () =>
         {
-            if (ForcedPreference is not { } h) return false;
-            return WriteForced(h);
+            if (Movement.Enabled) Hold();
+            return false;
         };
         callback.Enable();
     }
@@ -95,6 +97,14 @@ internal sealed unsafe class Actuator : IDisposable
         ClearJump();
         Movement.Hold();
         LastCommand = "hold";
+    }
+
+    public void Face(float heading)
+    {
+        arrowRequested = arrowLatched = false;
+        ClearJump();
+        Movement.SetFacingInput(heading);
+        LastCommand = "face";
     }
 
     public void Arrow(Vector2 direction, double notBefore)
@@ -135,7 +145,7 @@ internal sealed unsafe class Actuator : IDisposable
             launch.Cancel();
             TryImmediateJump();
         }
-        else launch.Arm(Movement, WalkSpeed, 1e-3f, Vector2.Normalize(direction), () => true, DispatchJump, KeepJumpSpeed);
+        else launch.Arm(Movement, null, 1e-3f, Vector2.Normalize(direction), () => true, DispatchJump);
         LastCommand = "jump";
     }
 
@@ -143,7 +153,7 @@ internal sealed unsafe class Actuator : IDisposable
     {
         ClearJump();
         Movement.Release();
-        ForcedPreference = ArrowPreference = null;
+        ArrowPreference = null;
         arrowRequested = false;
         LastCommand = "release";
     }
@@ -170,7 +180,7 @@ internal sealed unsafe class Actuator : IDisposable
         else if (JumpPending && now - jumpArmedAt > 0.12)
         {
             launch.Cancel();
-            DispatchJump();
+            TryImmediateJump();
         }
     }
 
@@ -186,8 +196,9 @@ internal sealed unsafe class Actuator : IDisposable
         var walk = PlayerMoveControllerWalk.Instance();
         JumpSpeedBefore = walk == null ? 0 : walk->CurrentSpeed;
         JumpTargetSpeed = walk == null ? 0 : walk->GetTargetSpeed();
-        if (walk == null || !float.IsFinite(JumpTargetSpeed) || JumpTargetSpeed < WalkSpeed) return;
-        walk->CurrentSpeed = WalkSpeed;
+        if (walk == null || Movement.DirectionalInputAllowed != true ||
+            !float.IsFinite(JumpTargetSpeed) || JumpTargetSpeed <= 0) return;
+        if (JumpTargetSpeed > walk->CurrentSpeed) walk->CurrentSpeed = JumpTargetSpeed;
         DispatchJump();
     }
 
@@ -236,15 +247,6 @@ internal sealed unsafe class Actuator : IDisposable
             !Movement.TryReadForcedDirection(out float after)) return;
         float delta = Geo.WrapAngle(after - before);
         ++ArrowTurnSamples; ArrowTurnSeconds += callback.FrameSeconds; ArrowTurnRadians += delta;
-    }
-
-    private static bool WriteForced(float heading)
-    {
-        if (Service.LocalPlayer is not { IsDead: false } actor) return false;
-        var manager = ((NativeCharacter*)actor.Address)->GetStatusManager();
-        if (manager == null || manager->GetStatusIndex(3737) < 0) return false;
-        manager->SpecialStatusTimerOrDirection = Geo.WrapAngle(heading);
-        return true;
     }
 
     public void Dispose()

@@ -21,7 +21,7 @@ internal sealed class CourseHazards
         public float Length { get; set; }
         public float ForwardMin { get; set; }
         public float[] Endpoint { get; set; } = [];
-        public HazardField.Station Station(HazardField field, uint action, double lead = .25, double tail = .15, string note = "")
+        public HazardField.Station Station(HazardField field, uint action, double lead = .15, double tail = .10, string note = "")
             => field.StationFor(new(action, Enum.Parse<HazardShape>(Kind), Size, Length, Lead: lead, Tail: tail, ForwardMin: ForwardMin, Note: note),
                 new(Origin[0], Origin[1]), Rotation, new(Endpoint[0], Endpoint[1]));
     }
@@ -35,16 +35,22 @@ internal sealed class CourseHazards
         public uint Action { get; set; }
         public double Period { get; set; }
         public double[] Offsets { get; set; } = [];
+        public double[] OffsetErrors { get; set; } = [];
+        public double[][] OffsetChoices { get; set; } = [];
+        public bool MatchRotation { get; set; }
+        public bool MatchDestination { get; set; }
+        public double PeriodError { get; set; }
         public Shape[] Shapes { get; set; } = [];
         public Body[] Bodies { get; set; } = [];
-        public double Lead { get; set; }
-        public double Tail { get; set; }
+        public double Lead { get; set; } = .15;
+        public double Tail { get; set; } = .10;
         public bool Permanent { get; set; }
         public double Epoch = double.NaN;
-        public double CastEnd = double.NaN;
-        // Crystal-024322: 26 cast-end to receipt delays, median 0.277 s.
-        public double CastReceiptLag = .28;
+        internal double EpochError;
         public HazardField.Station[] Stations = [], BodyStations = [];
+        internal double[] ChoiceEpochs = [];
+        internal bool[] ActiveChoices = [];
+        internal bool UsesChoices => OffsetChoices.Length > 0 || MatchDestination;
     }
     private readonly CourseId course;
     private readonly HazardField field;
@@ -59,9 +65,34 @@ internal sealed class CourseHazards
         public double StopAt = double.PositiveInfinity;
     }
     private readonly Dictionary<uint, RingColumn> ringColumns = [];
+    private readonly List<(HazardField.Station From, HazardField.Station To)> ringColumnSites = [];
+    private readonly List<HazardField.Station> pendingRingColumnSites = [];
 
     private HazardField.Station ColumnBody(Vector2 position) => field.StationFor(
         new(0xE2000000, HazardShape.Circle, 1.5f, Note: "column-body"), position, 0, position);
+
+    private void RevealRingColumnSite(Vector2 position)
+    {
+        HazardField.Station? opposite = null;
+        bool ambiguous = false;
+        foreach (var (from, to) in ringColumnSites)
+        {
+            HazardField.Station other;
+            if (Vector2.DistanceSquared(position, from.Origin) < .75f * .75f) other = to;
+            else if (Vector2.DistanceSquared(position, to.Origin) < .75f * .75f) other = from;
+            else continue;
+            if (opposite != null && opposite != other) ambiguous = true;
+            opposite = other;
+        }
+        for (int i = pendingRingColumnSites.Count - 1; i >= 0; --i)
+        {
+            var station = pendingRingColumnSites[i];
+            if (Vector2.DistanceSquared(position, station.Origin) >= .75f * .75f &&
+                (ambiguous || station != opposite)) continue;
+            pendingRingColumnSites.RemoveAt(i);
+            field.Changed(station);
+        }
+    }
 
     private void ColumnMove(uint entity, Vector2 from, Vector2 to, double receipt)
     {
@@ -71,14 +102,17 @@ internal sealed class CourseHazards
         column.Origin = ColumnBody(from); column.Destination = ColumnBody(to);
         column.StopAt = receipt + .85;
         field.Changed(column.Origin); field.Changed(column.Destination);
+        RevealRingColumnSite(from); RevealRingColumnSite(to);
     }
 
     public static HazardSpec[] Specs(CourseId course) => course switch
     {
         CourseId.Knight => [new(34716, HazardShape.Rect, 1, 1.5f, Lead: .35, Tail: .35, ForwardMin: -1.5f),
             new(34717, HazardShape.Circle, 3, CastWarning: true), new(34718, HazardShape.Rect, 5, 4)],
-        CourseId.Ring => [new(34797, HazardShape.HalfDisc, 8, CastWarning: true),
-            new(34798, HazardShape.HalfDisc, 8, CastWarning: true), new(34805, HazardShape.Circle, 6, CastWarning: true),
+        // Half-disc effects report caster facing; casts report the left/right footprint direction.
+        CourseId.Ring => [new(34797, HazardShape.HalfDisc, 8, CastWarning: true, EffectRotationOffset: MathF.PI / 2),
+            new(34798, HazardShape.HalfDisc, 8, CastWarning: true, EffectRotationOffset: -MathF.PI / 2),
+            new(34805, HazardShape.Circle, 6, CastWarning: true),
             new(35409, HazardShape.Charge, 1.5f, Tail: .85)],
         CourseId.Crystal => [new(34716, HazardShape.Rect, 1, 1.5f, ForwardMin: -1.5f),
             new(34774, HazardShape.Charge, 1.5f, Tail: .85), new(34799, HazardShape.Rect, 2, 2, Tail: 2.1, ForwardMin: -2),
@@ -87,7 +121,11 @@ internal sealed class CourseHazards
             new(34801, HazardShape.Circle, 6), new(34802, HazardShape.Circle, 5), new(34804, HazardShape.Rect, 3, 3, ForwardMin: -3),
             new(34812, HazardShape.Rect, 3, 3, ForwardMin: -3)],
     };
-    public static void Install(CourseId course, HazardField field) => _ = new CourseHazards(course, field);
+    public static void Install(CourseId course, HazardField field)
+    {
+        if (field.ExtraObservation?.Target is CourseHazards installed && installed.course == course) return;
+        _ = new CourseHazards(course, field);
+    }
     private CourseHazards(CourseId course, HazardField field)
     {
         this.course = course;
@@ -96,9 +134,21 @@ internal sealed class CourseHazards
         uint custom = 0xF0000000;
         foreach (var group in groups)
         {
+            int choices = group.UsesChoices ? Math.Max(1, group.OffsetChoices.Length) * group.Shapes.Length : 0;
+            group.ChoiceEpochs = new double[choices];
+            group.ActiveChoices = new bool[choices];
             group.Stations = group.Shapes.Select(s => s.Station(field, group.Action, group.Lead, group.Tail,
-                group.Permanent ? "hammer-body" : course == CourseId.Crystal && group.Action == 34800 ? "crystal-wind" : "")).ToArray();
+                group.Permanent ? course == CourseId.Ring ? "column-body" : "hammer-body" :
+                    course == CourseId.Crystal && group.Action == 34800 ? "crystal-wind" : "")).ToArray();
             group.BodyStations = group.Bodies.Select(b => b.Shape.Station(field, custom++, note: "column-body")).ToArray();
+            if (course == CourseId.Ring && group.Action == 35409)
+                foreach (var station in group.Stations)
+                {
+                    var from = ColumnBody(station.Origin); var to = ColumnBody(station.Endpoint);
+                    ringColumnSites.Add((from, to));
+                    if (!pendingRingColumnSites.Contains(from)) pendingRingColumnSites.Add(from);
+                    if (!pendingRingColumnSites.Contains(to)) pendingRingColumnSites.Add(to);
+                }
         }
         if (course == CourseId.Knight)
             for (int i = 0; i < bridges.Length; ++i)
@@ -144,6 +194,7 @@ internal sealed class CourseHazards
             if (column.Destination != null) field.Changed(column.Destination);
             column.Origin = ColumnBody(actorPosition.XZ()); column.Destination = null;
             column.StopAt = double.PositiveInfinity; field.Changed(column.Origin);
+            RevealRingColumnSite(actorPosition.XZ());
             return true;
         }
         if (course == CourseId.Knight && observation is MechanicMapObservation { EventId: 0x8004002B, Index: >= 14 and <= 17 } map)
@@ -181,8 +232,7 @@ internal sealed class CourseHazards
                     if (Vector2.DistanceSquared(charge.Position.XZ(), station.Origin) < .75f * .75f ||
                         Vector2.DistanceSquared(charge.Position.XZ(), station.Endpoint) < .75f * .75f)
                     {
-                        // Cast end precedes the receipt by about 0.28 s in Ring-040531.
-                        station.CastEnd = charge.Seconds + charge.Duration + .28;
+                        station.CastEnd = HazardField.CastActivation(charge);
                         field.Changed(station);
                         var chargeFrom = Vector2.DistanceSquared(charge.Position.XZ(), station.Origin) < .75f * .75f
                             ? station.Endpoint : station.Origin;
@@ -207,8 +257,9 @@ internal sealed class CourseHazards
         if (observation is MechanicEffectObservation { Origin: { } origin } effect)
         { action = effect.ActionId; position = origin; rotation = effect.Rotation; at = effect.Seconds; }
         else if (observation is MechanicCastObservation cast)
-        { action = cast.ActionId; position = cast.Position; rotation = cast.Rotation; at = cast.Seconds + cast.Duration; }
+        { action = cast.ActionId; position = cast.Position; rotation = cast.Rotation; at = HazardField.CastActivation(cast); }
         else return false;
+        if (course == CourseId.Hit && observation is MechanicCastObservation) return false;
         // 34812 casts at the rear edge (187.4), then its receipt reports the
         // first square's centre (190.4). The five lanes share this geometry.
         if (course == CourseId.Crown && action == 34812 && observation is MechanicCastObservation)
@@ -216,43 +267,82 @@ internal sealed class CourseHazards
             var offset = Geo.FromHeading(rotation) * 3;
             position += new Vector3(offset.X, 0, offset.Y);
         }
-        Group? selected = null; int phase = 0; double nearest = .75 * .75;
+        Group? selected = null; int phase = 0, phaseMask = 0; double nearest = .75 * .75;
         foreach (var group in groups)
         {
             if (group.Action != action) continue;
             for (int i = 0; i < group.Stations.Length; ++i)
             {
                 var station = group.Stations[i];
-                double distance = Vector2.DistanceSquared(station.Origin, position.XZ());
-                if (station.Spec.Shape == HazardShape.Rect && Math.Abs(Geo.WrapAngle(station.Rotation - rotation)) > .2) continue;
+                double distance = group.MatchDestination && observation is MechanicEffectObservation
+                    { PacketTargetPosition: { } destination } ? Vector2.DistanceSquared(station.Endpoint, destination.XZ()) :
+                    Vector2.DistanceSquared(station.Origin, position.XZ());
+                if ((group.MatchRotation || station.Spec.Shape == HazardShape.Rect) &&
+                    Math.Abs(Geo.WrapAngle(group.Shapes[i].Rotation - rotation)) > .2) continue;
+                if (station.Spec.Shape == HazardShape.Charge && observation is MechanicEffectObservation
+                    { PacketTargetPosition: { } endpoint } && Vector2.DistanceSquared(station.Endpoint, endpoint.XZ()) >= .75f * .75f) continue;
+                if (group == selected && Math.Abs(distance - nearest) < 1e-6)
+                { phaseMask |= 1 << i; continue; }
                 if (distance >= nearest) continue;
-                selected = group; phase = i; nearest = distance;
+                selected = group; phase = i; phaseMask = 1 << i; nearest = distance;
             }
         }
         if (selected == null) return false;
-        if (course == CourseId.Crystal && action == 34800 || course == CourseId.Crown && action == 34812)
+        if (selected.UsesChoices)
         {
-            if (observation is MechanicCastObservation)
-            { selected.CastEnd = at; at += selected.CastReceiptLag; }
-            else if (double.IsFinite(selected.CastEnd))
+            bool changed = false;
+            int remaining = 0;
+            int count = selected.Shapes.Length;
+            for (int i = 0; i < selected.ChoiceEpochs.Length; ++i)
             {
-                double lag = at - selected.CastEnd;
-                if (lag is >= 0 and <= 1) selected.CastReceiptLag = .8 * selected.CastReceiptLag + .2 * lag;
-                selected.CastEnd = double.NaN;
+                if (!selected.ActiveChoices[i]) continue;
+                var offsets = selected.OffsetChoices.Length > 0 ? selected.OffsetChoices[i / count] : selected.Offsets;
+                double error = double.PositiveInfinity, choiceEpoch = 0;
+                for (int observed = 0; observed < count; ++observed)
+                    if ((phaseMask & (1 << observed)) != 0)
+                    {
+                        double candidate = at - offsets[observed];
+                        double residual = Math.Abs(Math.IEEERemainder(candidate - selected.ChoiceEpochs[i], selected.Period));
+                        if (residual < error) { error = residual; choiceEpoch = candidate; }
+                    }
+                changed |= error > .15;
+                if (error > .2)
+                { selected.ActiveChoices[i] = false; changed = true; continue; }
+                selected.ChoiceEpochs[i] = choiceEpoch; ++remaining;
             }
+            if (remaining == 0)
+            {
+                for (int i = 0; i < selected.ChoiceEpochs.Length; ++i)
+                {
+                    int observed = i % count;
+                    selected.ActiveChoices[i] = (phaseMask & (1 << observed)) != 0;
+                    var offsets = selected.OffsetChoices.Length > 0 ? selected.OffsetChoices[i / count] : selected.Offsets;
+                    selected.ChoiceEpochs[i] = at - offsets[observed];
+                }
+                changed = true;
+            }
+            if (changed)
+            {
+                foreach (var station in selected.Stations) field.Changed(station);
+                foreach (var station in selected.BodyStations) field.Changed(station);
+            }
+            return true;
         }
         double epoch = at - selected.Offsets[phase];
+        double epochError = phase < selected.OffsetErrors.Length ? selected.OffsetErrors[phase] : 0;
         if (observation is MechanicCastObservation || !double.IsFinite(selected.Epoch) || selected.Period <= 0 ||
-            Math.Abs(Math.IEEERemainder(epoch - selected.Epoch, selected.Period)) > .15)
+            epochError > selected.EpochError || Math.Abs(Math.IEEERemainder(epoch - selected.Epoch, selected.Period)) > .15)
         {
             foreach (var station in selected.Stations) field.Changed(station);
             foreach (var station in selected.BodyStations) field.Changed(station);
         }
-        selected.Epoch = epoch;
+        selected.Epoch = epoch; selected.EpochError = epochError;
         return true;
     }
     private void Prepare(double now, double end)
     {
+        foreach (var station in pendingRingColumnSites)
+        { station.Windows.Add((now, end)); station.KnownUntil = end; }
         foreach (var column in ringColumns.Values)
         {
             // Retain the source body through transit; the full corridor also
@@ -274,16 +364,36 @@ internal sealed class CourseHazards
                 { station.Windows.Add((now, end)); station.KnownUntil = double.PositiveInfinity; }
                 continue;
             }
+            if (group.UsesChoices)
+            {
+                for (int choice = 0; choice < group.ChoiceEpochs.Length; ++choice)
+                    if (group.ActiveChoices[choice])
+                        for (int phase = 0; phase < group.Stations.Length; ++phase)
+                        {
+                            var offsets = group.OffsetChoices.Length > 0 ? group.OffsetChoices[choice / group.Shapes.Length] : group.Offsets;
+                            double anchor = group.ChoiceEpochs[choice] + offsets[phase];
+                            Repeat(group.Stations[phase], anchor - group.Lead, anchor + group.Tail, group.Period, now, end, group.PeriodError);
+                            for (int body = 0; body < group.Bodies.Length; ++body)
+                            {
+                                var span = group.Bodies[body].Windows[phase];
+                                if (span.Length < 2) continue;
+                                Repeat(group.BodyStations[body], anchor + span[0], anchor + span[1], group.Period, now, end, group.PeriodError);
+                            }
+                        }
+                continue;
+            }
             if (!double.IsFinite(group.Epoch)) continue;
             for (int phase = 0; phase < group.Stations.Length; ++phase)
             {
                 var station = group.Stations[phase];
                 double anchor = group.Epoch + group.Offsets[phase];
-                Repeat(station, anchor - group.Lead, anchor + group.Tail, group.Period, now, end);
+                double error = group.EpochError + (phase < group.OffsetErrors.Length ? group.OffsetErrors[phase] : 0);
+                Repeat(station, anchor - group.Lead - error, anchor + group.Tail + error, group.Period, now, end, group.PeriodError);
                 for (int b = 0; b < group.Bodies.Length; ++b)
                 {
                     var span = group.Bodies[b].Windows[phase];
-                    Repeat(group.BodyStations[b], anchor + span[0], anchor + span[1], group.Period, now, end);
+                    if (span.Length < 2) continue;
+                    Repeat(group.BodyStations[b], anchor + span[0], anchor + span[1], group.Period, now, end, group.PeriodError);
                 }
             }
         }
@@ -306,12 +416,13 @@ internal sealed class CourseHazards
             Repeat(wind[i], center - width, center + width, MathF.Tau / Math.Abs(windRate), now, end);
         }
     }
-    private static void Repeat(HazardField.Station station, double start, double finish, double period, double now, double end)
+    private static void Repeat(HazardField.Station station, double start, double finish, double period, double now, double end, double periodError = 0)
     {
         int first = (int)Math.Floor((now - finish) / period);
-        for (int n = first; start + n * period <= end; ++n)
+        for (int n = first; start + n * period - Math.Abs(n) * periodError <= end; ++n)
         {
-            double a = start + n * period, b = finish + n * period;
+            double error = Math.Abs(n) * periodError;
+            double a = start + n * period - error, b = finish + n * period + error;
             if (b >= now) station.Windows.Add((a, b));
         }
         station.KnownUntil = end;

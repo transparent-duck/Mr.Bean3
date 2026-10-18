@@ -14,18 +14,29 @@ internal sealed class HitWaterRouteStep : Step
     private double departAt, seenHit, nextRetry;
     private bool begun;
     private int followedEdges;
+    private long observedRevision, plannedRevision, phaseRevision;
 
     public override void Enter(PilotContext c)
     {
         seenHit = c.LastHitAt;
         c.Log("water-cache", new { loadMs = c.Water.LoadMs, routes = c.Water.Cache.Routes.Length,
             nodes = c.Water.Cache.Nodes.Length, edges = c.Water.Cache.Edges.Length });
-        if (UsePreparedPlan) SetPassage(c);
+        if (UsePreparedPlan) { SetPassage(c); CaptureRevision(c); }
         else Select(c);
     }
 
     public override bool Tick(PilotContext c)
     {
+        if (c.Pose.Grounded && (observedRevision != c.Hazards.Revision || phaseRevision != c.Water.Revision))
+        {
+            c.Water.Observe(c);
+            if (c.Water.HasConflict(c, plannedRevision, phaseRevision != c.Water.Revision))
+            {
+                c.Log("course-new-danger", new { at = c.Now, step = Name, feet = c.Pose.Feet });
+                Select(c);
+            }
+            CaptureRevision(c);
+        }
         if (c.Water.Plan == null && c.Now >= nextRetry || seenHit != c.LastHitAt && c.Pose.Grounded)
         {
             seenHit = c.LastHitAt;
@@ -33,6 +44,13 @@ internal sealed class HitWaterRouteStep : Step
         }
         if (c.Water.Plan == null) { c.Act.Hold(); return false; }
         if (c.Water.Plan.Edges.Length == 0) return true;
+        if (!begun && c.Pose.Grounded && c.Now > departAt + .12)
+        {
+            c.Log("course-retime", new { at = c.Now, step = Name, late = c.Now - departAt, feet = c.Pose.Feet });
+            Select(c);
+            if (c.Water.Plan == null) { c.Act.Hold(); return false; }
+            if (c.Water.Plan.Edges.Length == 0) return true;
+        }
         if (c.Now < departAt) { c.Act.Hold(); return false; }
         if (!begun) { passage!.Begin(c); begun = true; }
         if (!passage!.Follow(c)) return false;
@@ -51,18 +69,27 @@ internal sealed class HitWaterRouteStep : Step
 
     private void Select(PilotContext c)
     {
+        c.Act.ClearJump();
         c.Water.Observe(c);
         c.Water.Calculate(new(c.Pose.Feet.X, c.Pose.Feet.Z), c.Now);
         nextRetry = c.Now + .25;
         SetPassage(c);
+        CaptureRevision(c);
         c.Log("water-route-plan", c.Water.Snapshot(c.Now));
+    }
+
+    private void CaptureRevision(PilotContext c)
+    {
+        observedRevision = c.Hazards.Revision;
+        plannedRevision = c.Hazards.RouteRevision;
+        phaseRevision = c.Water.Revision;
     }
 
     private void SetPassage(PilotContext c)
     {
         if (c.Water.Plan is { Edges.Length: > 0 } plan)
         {
-            departAt = plan.Departures[0] + c.Water.Epoch;
+            departAt = plan.Departures[0] + c.Water.PlanEpoch;
             var points = new List<Vector3>();
             var jumps = new List<int>();
             followedEdges = 0;
@@ -74,7 +101,7 @@ internal sealed class HitWaterRouteStep : Step
                 points.AddRange(edge.Points.Select(p => new Vector3((float)p.X, 10, (float)p.Z)));
                 ++followedEdges;
             }
-            passage = new PathPassage { Name = "water route", Points = points.ToArray(), JumpFrom = jumps.ToArray(), ArriveRadius = 0.08f };
+            passage = new PathPassage { Name = "water route", Points = points.ToArray(), JumpFrom = jumps.ToArray(), ArriveRadius = .12f };
         }
         else passage = null;
         begun = false;

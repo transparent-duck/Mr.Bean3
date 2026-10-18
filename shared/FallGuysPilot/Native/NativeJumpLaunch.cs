@@ -16,6 +16,7 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
 {
     private delegate void SpeedUpdate(PlayerMoveControllerWalk* walk);
     private readonly Hook<SpeedUpdate> hook;
+    private readonly DirectMovementController? instantMovement;
     private DirectMovementController? movement;
     private Func<bool>? permitted;
     private Action? applied;
@@ -24,6 +25,7 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
     private bool holdGroundVelocity;
     private bool allowHigherGroundTarget;
     private bool holdLaunchSpeed;
+    private bool nativeLaunch;
     private Vector2 groundVelocity;
     private Vector2 permittedForce;
     private float? zeroForceScalarSpeed;
@@ -32,26 +34,33 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
     public bool Pending => applied != null;
     public float PreviousSpeed { get; private set; }
     public float AppliedSpeed { get; private set; }
+    public long AccelerationWrites { get; private set; }
+    public double AccelerationAt { get; private set; }
+    public float AccelerationBefore { get; private set; }
+    public float AccelerationTarget { get; private set; }
+    public Vector3 AccelerationPosition { get; private set; }
     public double MaximumCallbackSeconds { get; private set; }
     // Local speed-hook entry, before Original. These scalars identify its
     // ordering against the existing input-output counters and Framework pose.
     public uint SpeedFrame { get; private set; }
     public double SpeedAt { get; private set; }
     public Vector3 SpeedPosition { get; private set; }
-    public NativeJumpLaunch()
+    public NativeJumpLaunch(DirectMovementController? instantMovement = null)
     {
+        this.instantMovement = instantMovement;
         // Install while the scene is locked. Arming and cancellation only
         // change owned state; patching hooks during movement can stall a frame.
         hook=new CompSig("40 53 48 83 EC 50 80 79 3C 00 48 8B D9 ?? ?? ?? ?? ?? ?? 48 89 7C 24 68")
             .GetHook<SpeedUpdate>(OnSpeed);
         hook.Enable();
     }
-    public void Arm(DirectMovementController controller,float speed,float precision,System.Numerics.Vector2 direction,Func<bool> guard,Action callback,
+    public void Arm(DirectMovementController controller,float? speed,float precision,System.Numerics.Vector2 direction,Func<bool> guard,Action callback,
         bool retainClampedSpeed=false)
     {
         Cancel();
         movement = controller; permitted = guard; applied = callback;
-        expectedSpeed=speed;directionPrecision=precision;expectedDirection=direction;
+        nativeLaunch=!speed.HasValue;
+        expectedSpeed=speed.GetValueOrDefault();directionPrecision=precision;expectedDirection=direction;
         holdLaunchSpeed=retainClampedSpeed;allowHigherGroundTarget=retainClampedSpeed;
     }
     public void HoldGroundVelocity(DirectMovementController controller,float nativeSpeed,float precision,
@@ -79,11 +88,26 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
     private void OnSpeedCore(PlayerMoveControllerWalk* walk)
     {
         hook!.Original(walk);
+        if (instantMovement?.DirectionalInputAllowed == true && walk != null &&
+            walk == PlayerMoveControllerWalk.Instance() && walk->Parent != null)
+        {
+            float target = walk->GetTargetSpeed();
+            if (float.IsFinite(target) && target > walk->CurrentSpeed)
+            {
+                AccelerationAt = SpeedAt;
+                AccelerationBefore = walk->CurrentSpeed;
+                AccelerationTarget = target;
+                AccelerationPosition = SpeedPosition;
+                walk->CurrentSpeed = target;
+                ++AccelerationWrites;
+            }
+        }
         if (applied == null&&!holdGroundVelocity&&!holdLaunchSpeed || walk == null) return;
         if (movement?.Enabled != true||permitted?.Invoke()!=true) { Cancel(); return; }
         if (walk != PlayerMoveControllerWalk.Instance() || walk->Parent == null) return;
         float speed = walk->GetTargetSpeed();
-        if (!float.IsFinite(speed)||((holdGroundVelocity||holdLaunchSpeed)&&allowHigherGroundTarget?speed<expectedSpeed:speed!=expectedSpeed))
+        if (!float.IsFinite(speed)||(nativeLaunch?speed<=0:
+            (holdGroundVelocity||holdLaunchSpeed)&&allowHigherGroundTarget?speed<expectedSpeed:speed!=expectedSpeed))
         {if(holdGroundVelocity)FailGround("Native target speed changed during ground velocity control.");return;}
         float inputSpeed=speed;
         var requiredDirection=expectedDirection;
@@ -111,9 +135,9 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
             PreviousSpeed=walk->CurrentSpeed;AppliedSpeed=inputSpeed;
             walk->CurrentSpeed=inputSpeed;++GroundWrites;return;
         }
-        float selected=holdLaunchSpeed?expectedSpeed:speed;
-        PreviousSpeed=walk->CurrentSpeed;AppliedSpeed=selected;
-        walk->CurrentSpeed = selected;
+        PreviousSpeed=walk->CurrentSpeed;
+        AppliedSpeed=nativeLaunch?walk->CurrentSpeed:holdLaunchSpeed?expectedSpeed:speed;
+        if(!nativeLaunch)walk->CurrentSpeed=AppliedSpeed;
         var callback = applied;
         if(holdLaunchSpeed)applied=null;else Cancel();
         callback?.Invoke();
@@ -124,7 +148,7 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
     }
     public void Cancel()
     {
-        applied = null; permitted = null; movement = null;holdGroundVelocity=false;holdLaunchSpeed=false;zeroForceScalarSpeed=null;
+        applied = null; permitted = null; movement = null;holdGroundVelocity=false;holdLaunchSpeed=false;nativeLaunch=false;zeroForceScalarSpeed=null;
     }
     public void Dispose() { Cancel(); hook.Dispose(); }
 }

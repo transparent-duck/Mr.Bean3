@@ -41,7 +41,7 @@ public sealed partial class FallGuysPilot
     private void SetLoop(bool enabled, string reason)
     {
         configuration.BlundervilleAutoLoop = enabled;
-        if (enabled) { configuration.BlundervilleEnabled = true; yielded = false; }
+        if (enabled) ResumeNavigation();
         configuration.Save();
         if (enabled) StartCycle();
         else

@@ -17,18 +17,16 @@ internal sealed class HitColumnStep : HitTimedStep
     internal static void Prepare() => _ = Routes.Value;
 }
 
-// Execute a complete area plan. Receipt updates do not change it halfway
-// through; only an actual hit starts a new search from the recovered pose.
 internal abstract class HitTimedStep : Step
 {
     protected abstract HitTimedRoutes Graph { get; }
     protected virtual bool CanWait(PilotPose pose) => true;
     protected virtual Func<Vector2, Vector2, HitTimedRoutes.Point[]>? ActualMotion(PilotPose pose) => null;
     protected virtual Passage CreatePassage(Vector3[] points) => new PathPassage
-        { Name = Name, Points = points, ArriveRadius = .08f };
+        { Name = Name, Points = points, ArriveRadius = .12f };
     private HitTimedRoutes.Plan plan = null!;
     private Passage? passage;
-    private int nextLeg;
+    private int firstLeg, nextLeg;
     private double departure, seenHit, nextRetry;
     private long plannedRevision;
     private bool begun;
@@ -65,7 +63,7 @@ internal abstract class HitTimedStep : Step
             bool changed = !double.IsFinite(nativeReadyAt) || Math.Abs(c.Now - nativeReadyAt) > .12 ||
                 Vector2.DistanceSquared(c.Pose.XZ, nativeReadyFeet) > .0225f;
             if (!changed && plan.Found && plannedRevision != c.Hazards.RouteRevision)
-                changed = Graph.HasConflict(c.Hazards, plan, 0, c.Pose.XZ, c.Now, plannedRevision);
+                changed = Graph.HasConflict(c.Hazards, plan, firstLeg, c.Pose.XZ, c.Now, plannedRevision);
             c.Log("hit-native-release", new { step = Name, at = c.Now,
                 predicted = double.IsFinite(nativeReadyAt) ? nativeReadyAt : (double?)null, changed, feet = c.Pose.Feet });
             seenHit = c.LastHitAt;
@@ -75,11 +73,28 @@ internal abstract class HitTimedStep : Step
     }
     public override bool Tick(PilotContext c)
     {
+        if (plan.Found && c.Pose.Grounded && plannedRevision != c.Hazards.RouteRevision)
+        {
+            long previousRevision = plannedRevision;
+            plannedRevision = c.Hazards.RouteRevision;
+            if (Graph.HasConflict(c.Hazards, plan, firstLeg, c.Pose.XZ, c.Now, previousRevision))
+            {
+                c.Log("course-new-danger", new { at = c.Now, step = Name, feet = c.Pose.Feet });
+                Select(c);
+            }
+        }
         if ((!plan.Found && (c.Now >= nextRetry || plannedRevision != c.Hazards.RouteRevision)) ||
             seenHit != c.LastHitAt && c.Pose.Grounded)
         { seenHit = c.LastHitAt; Select(c); }
         if (!plan.Found) { c.Act.Hold(); return false; }
         if (plan.Legs.Length == 0) return true;
+        if (!begun && c.Pose.Grounded && c.Now > departure + .12)
+        {
+            c.Log("course-retime", new { at = c.Now, step = Name, late = c.Now - departure, feet = c.Pose.Feet });
+            Select(c);
+            if (!plan.Found) { c.Act.Hold(); return false; }
+            if (plan.Legs.Length == 0) return true;
+        }
         if (c.Now < departure) { c.Act.Hold(); return false; }
         if (!begun) { passage!.Begin(c); begun = true; }
         if (!passage!.Follow(c)) return false;
@@ -93,11 +108,12 @@ internal abstract class HitTimedStep : Step
 
     private void Select(PilotContext c, double? readyAt = null)
     {
+        c.Act.ClearJump();
         long started = Stopwatch.GetTimestamp();
         double startAt = readyAt ?? c.Now;
         plan = Graph.Search(c.Hazards, c.Pose.XZ, startAt, CanWait(c.Pose), ActualMotion(c.Pose));
         nextRetry = c.Now + .25; plannedRevision = c.Hazards.RouteRevision;
-        passage = null; nextLeg = 0;
+        passage = null; firstLeg = nextLeg = 0;
         if (plan.Found && plan.Legs.Length > 0) SetPassage(c);
         c.Log("hit-ctc-plan", new { step = Name, at = c.Now, startAt, start = c.Pose.Feet,
             plan.Arrival, plan.Expanded, plan.Found, planningMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds,
@@ -109,6 +125,7 @@ internal abstract class HitTimedStep : Step
     private void SetPassage(PilotContext c)
     {
         begun = false;
+        firstLeg = nextLeg;
         departure = plan.Legs[nextLeg].Departure;
         var points = new List<Vector3>();
         while (nextLeg < plan.Legs.Length)

@@ -10,7 +10,7 @@ namespace MrBean.Modules.FallGuysPilot.Courses;
 // A node's state includes its movement law: walking may wait; forced motion may
 // not. Keeping whole arrival intervals is essential for non-stopping sections:
 // reaching a steering node earlier does not dominate reaching it later.
-internal sealed class HitTimedRoutes
+internal sealed partial class HitTimedRoutes
 {
     internal readonly record struct Interval(double Start, double End);
     internal readonly record struct Point(Vector2 Position, double Time, bool NeedsSupport = true);
@@ -35,6 +35,7 @@ internal sealed class HitTimedRoutes
     // Crown's ordinary vertices can all wait. It can keep one earliest label
     // per safe interval instead of propagating general forced-motion ranges.
     public bool UseWaitingSearch;
+    internal System.Threading.CancellationToken SearchCancellation;
     private readonly double[] remaining;
     private readonly List<HazardField.Station> knownStations = [];
     private readonly Dictionary<HazardField.Station, bool[]> nodeContacts = [];
@@ -167,6 +168,13 @@ internal sealed class HitTimedRoutes
         return result;
     }
 
+    internal IEnumerable<Edge> Connectors(Vector2 start, Func<Vector2, Vector2, Point[]>? actualMotion = null)
+    {
+        for (int to = 0; to < Nodes.Count; ++to)
+            if (Nodes[to].Position.Y <= start.Y && Connect(Nodes.Count, to, start, actualMotion) is { } edge)
+                yield return edge;
+    }
+
     private Edge? Connect(int from, int to, Vector2 position, Func<Vector2, Vector2, Point[]>? actualMotion = null)
     {
         var path = (actualMotion ?? motion)(position, Nodes[to].Position);
@@ -178,11 +186,12 @@ internal sealed class HitTimedRoutes
 
     // Static edges retain CTC when only receipt times change. Actual-position
     // connectors are calculated once for that query, with the same geometry law.
-    private void PrepareGeometry(HazardField field)
+    internal void PrepareGeometry(HazardField field)
     {
         if (!ReferenceEquals(geometryOwner, field))
         {
             geometryOwner = field; knownStations.Clear(); nodeContacts.Clear();
+            timing = null;
             foreach (var edges in Outgoing) foreach (var edge in edges) edge.Contacts.Clear();
         }
         float minZ = Nodes.Min(n => n.Position.Y), maxZ = Nodes.Max(n => n.Position.Y);
@@ -197,7 +206,7 @@ internal sealed class HitTimedRoutes
                 foreach (var edge in edges)
                 {
                     var contacts = Contacts(edge.Path, station);
-                    if (contacts.Length > 0) edge.Contacts.Add(station, contacts);
+                    if (contacts.Length > 0) edge.Contacts.TryAdd(station, contacts);
                 }
         }
     }
@@ -205,25 +214,57 @@ internal sealed class HitTimedRoutes
     // Reuse the route's CTC when a new cast or wind observation arrives.
     // Only a conflict requests another search; unrelated receipts keep the route.
     public bool HasConflict(HazardField field, Plan plan, int firstLeg, Vector2 feet, double now, long afterRevision = 0)
+        => CheckConflict(field, plan, firstLeg, feet, now, afterRevision, windBraces);
+
+    internal Plan Reschedule(HazardField field, Plan plan, int firstLeg, Vector2 feet, double now, bool canWait,
+        Interval? immobile = null, float? arrowHeading = null, float arrowRate = -MathF.Tau,
+        double windExecution = 1.5, double waitHorizon = 12, Edge[]? reconnect = null)
     {
-        int previousStations = knownStations.Count;
-        PrepareGeometry(field);
-        foreach (var leg in plan.Legs)
-            if (leg.Edge.From == Nodes.Count)
-                for (int i = previousStations; i < knownStations.Count; ++i)
+        var original = plan.Legs.Skip(firstLeg).Select(l => l.Edge).ToArray();
+        if (original.Length == 0) return new([], now, 0, true);
+        if (reconnect == null && Vector2.DistanceSquared(feet, original[0].Path[0].Position) > .15f * .15f)
+            return new([], now, 0, false);
+        var nodes = original.Select((e, i) => Nodes[e.To] with { Goal = i == original.Length - 1 }).ToArray();
+        var edges = original.Select((e, i) => new Edge(i == 0 ? nodes.Length : i - 1, i, e.Path)
+        { Motion = e.Motion, ArrowStart = e.ArrowStart, ArrowEnd = e.ArrowEnd }).ToArray();
+        for (int i = 0; i < edges.Length; ++i)
+            foreach (var pair in original[i].Contacts) edges[i].Contacts.Add(pair.Key, pair.Value);
+        var mapped = edges.Select((e, i) => (e, i)).ToDictionary(p => p.e, p => original[p.i]);
+        var sources = reconnect == null ? [edges[0]] : reconnect.SelectMany(e => original.Select((target, i) => (target, i))
+            .Where(p => p.target.To == e.To).Select(p =>
+            {
+                var source = new Edge(nodes.Length, p.i, e.Path) { Motion = e.Motion, ArrowStart = e.ArrowStart, ArrowEnd = e.ArrowEnd };
+                mapped.Add(source, e); return source;
+            })).ToArray();
+        var route = new HitTimedRoutes(nodes, edges[1..], ground) { UseWaitingSearch = UseWaitingSearch };
+        var result = route.Search(field, feet, now, canWait, sourceEdges: sources, immobile: immobile,
+            arrowHeading: arrowHeading, arrowRate: arrowRate, windExecution: windExecution, waitHorizon: waitHorizon);
+        return result with { Legs = result.Legs.Select(l => new Leg(mapped[l.Edge], l.Departure)).ToArray() };
+    }
+
+    internal static bool CheckConflict(HazardField field, Plan plan, int firstLeg, Vector2 feet, double now,
+        long afterRevision = 0, Node[]? braces = null, uint ignoredAction = 0)
+    {
+        for (int i = firstLeg; i < plan.Legs.Length; ++i)
+            foreach (var station in field.Stations)
+                if (station.ChangedAt > afterRevision && station.Spec.ActionId != ignoredAction &&
+                    !plan.Legs[i].Edge.Contacts.ContainsKey(station))
                 {
-                    var station = knownStations[i];
-                    var contacts = Contacts(leg.Edge.Path, station);
-                    if (contacts.Length > 0) leg.Edge.Contacts.TryAdd(station, contacts);
+                    var edge = plan.Legs[i].Edge;
+                    edge.Contacts.Add(station, Contacts(edge.Path, station));
                 }
         double end = Math.Max(now + 6, plan.Arrival);
         field.Prepare(now, end - now);
         bool HoldConflict(Vector2 position, double start, double finish)
         {
             if (finish < start) return false;
-            bool braced = AtWindBrace(position);
-            foreach (var station in knownStations)
+            bool braced = false;
+            if (braces != null)
+                foreach (var node in braces)
+                    if (Vector2.DistanceSquared(node.Position, position) <= .12f * .12f) { braced = true; break; }
+            foreach (var station in field.Stations)
                 if (!(braced && station.Spec.Note == "crystal-wind") &&
+                    station.Spec.ActionId != ignoredAction &&
                     station.ChangedAt > afterRevision && station.Contains(position, PilotEngine.BodyRadius))
                     foreach (var window in station.Windows)
                         if (window.Start <= finish && window.End >= start) return true;
@@ -235,7 +276,7 @@ internal sealed class HitTimedRoutes
             var leg = plan.Legs[i];
             if (HoldConflict(point, at, leg.Departure)) return true;
             foreach (var pair in leg.Edge.Contacts)
-                if (pair.Key.ChangedAt > afterRevision)
+                if (pair.Key.ChangedAt > afterRevision && pair.Key.Spec.ActionId != ignoredAction)
                 foreach (var contact in pair.Value)
                 {
                     double start = Math.Max(now, leg.Departure + contact.Start);
@@ -245,7 +286,7 @@ internal sealed class HitTimedRoutes
                         if (window.Start <= finish && window.End >= start) return true;
                 }
             at = Math.Max(now, leg.Departure + leg.Edge.Duration);
-            point = Nodes[leg.Edge.To].Position;
+            point = leg.Edge.Path[^1].Position;
         }
         return HoldConflict(point, at, firstLeg >= plan.Legs.Length ? end : plan.Arrival);
     }
@@ -333,7 +374,7 @@ internal sealed class HitTimedRoutes
         // it never retries without hazard windows.
         double end = surviveUntil ?? now + (double.IsFinite(shortest) ? shortest : Math.Abs(start.Y - EndZ) / 2) +
             (sourceEdges != null ? waitHorizon : period * (timingLevels + 1) + 1);
-        field.Prepare(now, end - now);
+        PrepareTimings(field, now, end);
         bool sourceBraced = AtWindBrace(start);
         var windLocks = knownStations.Where(s => s.Spec.Note == "crystal-wind")
             .SelectMany(s => s.Windows.Select(w => new Interval(w.Start, w.End + windExecution))).ToArray();
@@ -341,6 +382,7 @@ internal sealed class HitTimedRoutes
         Interval[] SafeNode(int id)
         {
             if (safe[id] is { } cached) return cached;
+            if (id != source) return safe[id] = Complement(timing!.Nodes[id].Forbidden, now, end);
             bool braced = id == source ? sourceBraced : Nodes[id].WindBrace;
             return safe[id] = Complement(Merge(knownStations.Where(s => !(braced && s.Spec.Note == "crystal-wind") && (id == source
                     ? s.Contains(start, PilotEngine.BodyRadius) : nodeContacts[s][id]))
@@ -350,8 +392,10 @@ internal sealed class HitTimedRoutes
         Interval[] Forbidden(Edge edge)
         {
             if (forbidden.TryGetValue(edge, out var cached)) return cached;
-            var spans = edge.Contacts.SelectMany(pair => pair.Value.SelectMany(contact =>
-                pair.Key.Windows.Select(w => new Interval(w.Start - contact.End, w.End - contact.Start))));
+            IEnumerable<Interval> spans = timing!.Edges.TryGetValue(edge, out var prepared)
+                ? prepared.Forbidden : DepartureWindows(edge);
+            if (immobile == null && !(edge.From == source ? sourceBraced : Nodes[edge.From].WindBrace))
+                return forbidden[edge] = spans as Interval[] ?? spans.ToArray();
             if (immobile is { } stop && edge.Duration > 0)
                 spans = spans.Append(new(stop.Start - edge.Duration, stop.End));
             // A supported wall stops the displacement, not its native motion
@@ -377,6 +421,7 @@ internal sealed class HitTimedRoutes
                     OfferWait(new(source, new(now, initial[i].End), now, null, null), i);
             while (queue.TryDequeue(out var item, out _))
             {
+                if ((expanded & 63) == 0) SearchCancellation.ThrowIfCancellationRequested();
                 var current = item.Label;
                 if (!ReferenceEquals(best[(current.Node, item.Interval)], current)) continue;
                 ++expanded;
@@ -424,6 +469,7 @@ internal sealed class HitTimedRoutes
         int expanded = 0;
         while (queue.TryDequeue(out var label, out _))
         {
+            if ((expanded & 63) == 0) SearchCancellation.ThrowIfCancellationRequested();
             ++expanded;
             if (surviveUntil is { } until && label.Times.End >= until)
                 return Unpack(label, label.Times.Start, expanded) with { Arrival = until };

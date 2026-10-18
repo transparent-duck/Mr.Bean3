@@ -47,7 +47,7 @@ internal sealed class HitSteeringStep : HitTimedStep
     // The derivative at an actual steering start preserves its current heading.
     // Curvature * native speed must fit the native turn rate; this excludes
     // physically impossible bends, not model-mismatch execution.
-    private static HitTimedRoutes.Point[] Curve(Vector2 start, Vector2 end, float heading)
+    internal static HitTimedRoutes.Point[] Curve(Vector2 start, Vector2 end, float heading)
     {
         double distance = start.Y - end.Y;
         if (distance <= 0) return [];
@@ -93,7 +93,7 @@ internal sealed class HitSteeringPath : Passage
         {
             var target = Points[index].XZ();
             bool passed = index > 0 && Vector2.Dot(p - target, target - Points[index - 1].XZ()) >= 0;
-            if (Vector2.DistanceSquared(p, target) > .08f * .08f && !passed) break;
+            if (Vector2.DistanceSquared(p, target) > .12f * .12f && !passed) break;
             ++index;
         }
         if (index == Points.Length) return true;

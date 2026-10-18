@@ -18,6 +18,7 @@ public sealed partial class FallGuysPilot
     private Vector3[] routeWorld = [];
     private Vector2[] routeScreen = [];
     private bool[] routeVisible = [], routeMarkedNodes = [];
+    private byte[] routeBoundaryNodes = [];
     private string[] routeNodeLabels = [];
     private RouteDrawing[] routeLines = [];
     private bool routeOverlay;
@@ -30,88 +31,20 @@ public sealed partial class FallGuysPilot
 
     private PilotCourseGeometry HitInspectionGraph(string section, out Dictionary<int, string> labels)
     {
-        var names = new Dictionary<int, string>();
-        labels = names;
-        var nodes = new List<PilotCourseGeometry.Vertex>();
-        var edges = new List<PilotCourseGeometry.Route>();
-        Vector3 Feet(Vector2 p) => new(p.X, HitGround.Loaded.Value.At(p) ?? 10, p.Y);
-        void Node(Vector3 p) => nodes.Add(new() { Position = [p.X, p.Y, p.Z] });
-        PilotCourseGeometry.Move Move(Vector3[] points, bool jump = false) => new()
-            { Kind = jump ? "jump" : "walk", Points = points.Select(p => new[] { p.X, p.Y, p.Z }).ToArray() };
-        void Timed(HitTimedRoutes graph)
+        var full = HitCourseGeometry.Load();
+        labels = new();
+        if (section == "all") return full;
+        var ids = full.Sections.Single(s => s.Name == section).Nodes.Distinct().ToArray();
+        var local = ids.Select((id, index) => (id, index)).ToDictionary(p => p.id, p => p.index);
+        labels = ids.Select((id, index) => (id, index)).ToDictionary(p => p.index, p => p.id.ToString());
+        return new()
         {
-            int offset = nodes.Count;
-            foreach (var node in graph.Nodes) Node(Feet(node.Position));
-            foreach (var outgoing in graph.Outgoing)
-                foreach (var edge in outgoing)
-                    edges.Add(new() { From = offset + edge.From, To = offset + edge.To,
-                        Moves = [Move(edge.Path.Select(p => Feet(p.Position)).ToArray())] });
-        }
-        if (section is "all" or "water")
-        {
-            var cache = water.Cache;
-            foreach (var node in cache.Nodes) Node(Feet(node.Vector));
-            foreach (var edge in cache.Edges)
-                edges.Add(new() { From = edge.From, To = edge.To,
-                    // Water points exclude the source vertex. Most walk
-                    // edges contain only their destination; include that leg.
-                    Moves = Enumerable.Range(0, edge.Points.Length).Select(i =>
-                        Move([Feet(i == 0 ? cache.Nodes[edge.From].Vector : edge.Points[i - 1].Vector),
-                            Feet(edge.Points[i].Vector)], i > 0 && edge.Jump == i - 1)).ToArray() });
-        }
-        if (section is "all" or "column") Timed(HitColumnStep.InspectionGraph);
-        if (section is "all" or "steering") Timed(HitSteeringStep.InspectionGraph);
-        if (section is "all" or "wet") Timed(HitWetStep.InspectionGraph);
-        if (section is "all" or "opening")
-        {
-            var opening = HitOpeningStep.InspectionGeometry;
-            int offset = nodes.Count;
-            nodes.AddRange(opening.Nodes);
-            foreach (var edge in opening.Edges)
-                edges.Add(new() { From = offset + edge.From, To = offset + edge.To, Moves = edge.Moves });
-        }
-        if (section == "all")
-        {
-            // Show the actual script targets as a separate layer. JumpStep
-            // specifies a takeoff and heading, not a fixed landing point:
-            // its short orange arrow must not invent a landing trajectory.
-            int previous = -1;
-            void Target(Vector3 p, string name)
-            {
-                int at = nodes.Count; Node(p); names[at] = name;
-                if (previous >= 0)
-                    edges.Add(new() { From = previous, To = at, Moves = [new()
-                        { Kind = "script", Points = [nodes[previous].Position, nodes[at].Position] }] });
-                previous = at;
-            }
-            foreach (var step in new HitCourse().Build(default))
-                switch (step)
-                {
-                    case WalkStep walk:
-                        foreach (var p in walk.Points) Target(p, walk.Name);
-                        if (walk.Next != null) previous = -1;
-                        break;
-                    case JumpStep jump:
-                        Target(jump.Takeoff, jump.Name);
-                        var direction = Vector2.Normalize(jump.Direction);
-                        int end = nodes.Count;
-                        Node(jump.Takeoff + new Vector3(direction.X, 0, direction.Y) * 2);
-                        names[end] = "";
-                        edges.Add(new() { From = previous, To = end,
-                            Moves = [Move([jump.Takeoff, nodes[end].Feet], true)] });
-                        break;
-                    case FinishStep finish:
-                        foreach (var p in finish.Points) Target(p, finish.Name);
-                        previous = -1;
-                        break;
-                    default:
-                        previous = -1;
-                        break;
-                }
-        }
-        return new() { Nodes = nodes.ToArray(), Edges = edges.ToArray() };
+            Nodes = ids.Select(id => full.Nodes[id]).ToArray(),
+            Edges = full.Edges.Where(e => local.ContainsKey(e.From) && local.ContainsKey(e.To))
+                .Select(e => new PilotCourseGeometry.Route
+                    { From = local[e.From], To = local[e.To], Moves = e.Moves, EmptyOnly = e.EmptyOnly }).ToArray()
+        };
     }
-
     // Inspection only. Loading a graph/recording never starts a Pilot session,
     // changes the scene, supplies observations, or creates a movement owner.
     private void LoadRouteGraph(string map, string? recording = null, int planNumber = 1, string section = "all")
@@ -143,7 +76,6 @@ public sealed partial class FallGuysPilot
         { indices.TryAdd(node.Feet, points.Count); points.Add(node.Feet); }
         foreach (var edge in data.Edges) Edge(edge, false);
         string description = $"{map}/{(map == "hit" ? section : "all")}：{data.Nodes.Length} 節點，{data.Edges.Length} 有向連接。";
-        if (map == "hit") description += " 藍色連接終點與側道的固定目標。";
         if (recording != null)
         {
             if (map == "hit" || Path.GetFileName(recording) != recording || !recording.StartsWith(map + "-", StringComparison.OrdinalIgnoreCase) ||
@@ -189,6 +121,18 @@ public sealed partial class FallGuysPilot
         routeScreen = new Vector2[points.Count]; routeVisible = new bool[points.Count];
         routeNodeLabels = Enumerable.Range(0, data.Nodes.Length).Select(i => labels?.GetValueOrDefault(i) ?? i.ToString()).ToArray();
         routeMarkedNodes = marked; routeLines = lines.ToArray(); routeDescription = description;
+        routeBoundaryNodes = new byte[data.Nodes.Length];
+        if (map == "hit")
+        {
+            var full = HitCourseGeometry.Load();
+            var boundaries = new Dictionary<Vector3, byte>();
+            foreach (var area in full.Sections.Where(s => section == "all" || s.Name == section))
+            {
+                foreach (int id in area.Entries) boundaries[full.Nodes[id].Feet] = (byte)(boundaries.GetValueOrDefault(full.Nodes[id].Feet) | 1);
+                foreach (int id in area.Exits) boundaries[full.Nodes[id].Feet] = (byte)(boundaries.GetValueOrDefault(full.Nodes[id].Feet) | 2);
+            }
+            for (int i = 0; i < data.Nodes.Length; ++i) routeBoundaryNodes[i] = boundaries.GetValueOrDefault(data.Nodes[i].Feet);
+        }
         routeFocus = -1; routeOverlay = true;
         routeMap = Array.IndexOf(RouteMaps, map);
     }
@@ -196,6 +140,12 @@ public sealed partial class FallGuysPilot
     private void HandleGraphCommand(string[] args)
     {
         string option = args.FirstOrDefault() ?? "on";
+        if (option == "active")
+        {
+            string state = args.ElementAtOrDefault(1) ?? "on";
+            if (state is not ("on" or "off")) throw new ArgumentException("Use fallguys graph active on/off.");
+            configuration.FallGuysShowActiveRoute = state == "on"; configuration.Save(); return;
+        }
         if (option == "off") { routeOverlay = false; return; }
         if (option == "on") { routeOverlay = true; routeMap = -1; }
         else if (option == "hit")
@@ -220,9 +170,13 @@ public sealed partial class FallGuysPilot
 
     private void DrawRouteSettings()
     {
+        bool active = configuration.FallGuysShowActiveRoute;
+        if (ImGui.Checkbox("顯示目前路線與等待時間", ref active))
+        { configuration.FallGuysShowActiveRoute = active; configuration.Save(); }
+        if (active) ImGui.TextWrapped("綠：目前路線；橙：跳躍；黃圈：等待點。計算次數包含預先計算與調時；路線編號在產生新路線或調整時間時增加。");
         if (ImGui.Checkbox("顯示路網", ref routeOverlay) && routeOverlay) routeMap = -1;
         if (routeOverlay) ImGui.TextWrapped("自動顯示目前地圖。灰：步行；橙：跳躍；綠：載入的紀錄路線。");
-        if (routeOverlay && routeMap == 0) ImGui.TextWrapped("Hit 藍線：終點與側道的固定目標。");
+        if (routeOverlay && routeMap == 0) ImGui.TextWrapped("青圈：入口候選；紫圈：出口候選；雙圈：兩者重合。");
     }
 
     private void DrawRouteOverlay()
@@ -259,9 +213,12 @@ public sealed partial class FallGuysPilot
         {
             if (!routeVisible[i] || routeNodeLabels[i].Length == 0) continue;
             bool selected = i == routeFocus, recorded = routeMarkedNodes[i];
-            if (routeFocus >= 0 && !selected && !recorded) continue;
+            byte boundary = routeBoundaryNodes[i];
+            if (routeFocus >= 0 && !selected && !recorded && boundary == 0) continue;
             uint color = selected ? 0xffffffffu : recorded ? 0xff80ef80u : 0xffb0b0b0u;
             draw.AddCircleFilled(routeScreen[i], selected ? 5 : recorded ? 4 : 2, color);
+            if ((boundary & 1) != 0) draw.AddCircle(routeScreen[i], 6, 0xffffff40u, 0, 2);
+            if ((boundary & 2) != 0) draw.AddCircle(routeScreen[i], boundary == 3 ? 9 : 6, 0xffff60dfu, 0, 2);
             if (!selected && !recorded && Vector3.DistanceSquared(player.Position, routeWorld[i]) > 8 * 8) continue;
             var at = routeScreen[i] + new Vector2(5, -7); var size = ImGui.CalcTextSize(routeNodeLabels[i]);
             draw.AddRectFilled(at - new Vector2(2, 1), at + size + new Vector2(2, 1), 0xc0202020);

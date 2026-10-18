@@ -44,6 +44,8 @@ public sealed partial class FallGuysPilot : IDisposable
     private double nextProbe, nextFrame, beganAt;
     private int localHits;
     private Task statusWrite = Task.CompletedTask;
+    private Task planningTimesWrite = Task.CompletedTask;
+    private readonly RoutePlanningTimes planningTimes = new();
 
     public FallGuysPilot(Configuration configuration, ActionTracker tracker, Action<string> travel)
     {
@@ -51,6 +53,9 @@ public sealed partial class FallGuysPilot : IDisposable
         this.travel = travel;
         packets = new(tracker);
         directory = Path.Combine(Service.PluginInterface.GetPluginConfigDirectory(), "FallGuysPilot");
+        string timingPath = Path.Combine(directory, "planning-times-v1.json");
+        try { if (File.Exists(timingPath)) planningTimes = RoutePlanningTimes.Read(File.ReadAllText(timingPath)); }
+        catch (Exception error) { Service.Log.Warning("[FallGuysPilot] Could not read local planning times: " + error.Message); }
     }
 
     public void Update()
@@ -122,6 +127,7 @@ public sealed partial class FallGuysPilot : IDisposable
         {
             controlling = false;
             actuator.Release();
+            engine?.Dispose(); engine = null;
         }
         if (now >= nextFrame)
         {
@@ -132,9 +138,14 @@ public sealed partial class FallGuysPilot : IDisposable
                 at = now, feet = pose.Feet, pose.Facing, motion = pose.Motion, pose.Grounded, pose.Speed, force = pose.Force,
                 statuses = pose.Raw.Statuses.Select(s => s.Id).ToArray(), step = engine?.Current?.Name,
                 gate = (engine?.Current as GateStep)?.Status, command = actuator.LastCommand, controlling,
+                route = engine?.Current is CourseRouteStep route ? new
+                { route.RouteNumber, route.SearchNumber, route.SectionName, route.ActiveLeg, route.ActiveMove, route.Searching,
+                    route.Forecasting, route.AwaitingHandoff, waitSeconds = Math.Max(0, route.WaitUntil - now) } : null,
                 nudges = actuator.Nudges, jumps = actuator.Jumps,
                 jump = pose.Jump, actuator.JumpDispatchAt, actuator.JumpDispatchFeet, actuator.JumpAccepted,
                 actuator.JumpSpeedBefore, actuator.JumpTargetSpeed,
+                actuator.AccelerationWrites, actuator.AccelerationAt, actuator.AccelerationBefore,
+                actuator.AccelerationTarget, actuator.AccelerationPosition,
                 arrow = pose.Raw.ArrowDirection, arrowTarget = actuator.ArrowPreference,
                 actuator.ArrowEntryWrites, actuator.ArrowTurnSamples,
                 actuator.ArrowTurnSeconds, actuator.ArrowTurnRadians,
@@ -158,8 +169,14 @@ public sealed partial class FallGuysPilot : IDisposable
         actuator = new Actuator(); // installs hooks while the start lock holds the actor
         water.UseObservation();
         if (scene == CourseId.Hit) _ = water.Cache;
-        context = new PilotContext { Act = actuator, Hazards = new HazardField(script?.Hazards ?? []), Log = Write, Water = water };
-        engine = null;
+        context = new PilotContext { Act = actuator, Hazards = new HazardField(script?.Hazards ?? []), Log = Write, Water = water,
+            PlanningTimes = planningTimes };
+        if (scene == CourseId.Hit)
+        {
+            CourseHazards.Install(scene, context.Hazards);
+            water.Attach(context.Hazards);
+        }
+        engine?.Dispose(); engine = null;
         packets.Start();
         Directory.CreateDirectory(directory);
         recordPath = Path.Combine(directory, $"{scene}-{DateTime.Now:yyyyMMdd-HHmmss}.jsonl");
@@ -245,7 +262,8 @@ public sealed partial class FallGuysPilot : IDisposable
         recorder = null;
         actuator?.Dispose(); actuator = null;
         packets.Stop();
-        engine = null; context = null; script = null; course = null; controlling = false;
+        engine?.Dispose(); engine = null; context = null; script = null; course = null; controlling = false;
+        SavePlanningTimes();
         ResetHazardOverlay();
         ringSourcePoses.Clear(); nextSourcePose = 0;
     }
@@ -254,6 +272,37 @@ public sealed partial class FallGuysPilot : IDisposable
     {
         recorder?.Write(kind, value);
         PublishObservation(kind);
+    }
+
+    private void SavePlanningTimes()
+    {
+        string json = planningTimes.Serialize();
+        var preceding = planningTimesWrite;
+        planningTimesWrite = Task.Run(async () =>
+        {
+            await preceding.ConfigureAwait(false);
+            try
+            {
+                Directory.CreateDirectory(directory);
+                string path = Path.Combine(directory, "planning-times-v1.json");
+                await File.WriteAllTextAsync(path + ".tmp", json).ConfigureAwait(false);
+                File.Move(path + ".tmp", path, true);
+            }
+            catch (Exception error) { Service.Log.Warning("[FallGuysPilot] Could not save local planning times: " + error.Message); }
+        });
+    }
+
+    private void ResumeNavigation()
+    {
+        if (!configuration.BlundervilleEnabled || !controlling || yielded || actuator?.CancelledByUser == true)
+        {
+            actuator?.Release();
+            actuator?.Movement.ClearCancellation();
+            engine?.Dispose(); engine = null;
+            controlling = false;
+        }
+        configuration.BlundervilleEnabled = true;
+        yielded = false;
     }
 
     public void HandleCommand(string[] args)
@@ -286,7 +335,7 @@ public sealed partial class FallGuysPilot : IDisposable
         if (command == "start")
         {
             if (water.Manual) { StopWaterDebug("返回正常流程"); water.UseObservation(); }
-            configuration.BlundervilleEnabled = true; configuration.Save(); yielded = false;
+            ResumeNavigation(); configuration.Save();
         }
         else if (command == "stop") { SetLoop(false, "stop"); StopWaterDebug("已停止"); configuration.BlundervilleEnabled = false; configuration.Save(); }
         else if (command != "status") throw new ArgumentException("Use fallguys start, stop or status.");
@@ -339,5 +388,6 @@ public sealed partial class FallGuysPilot : IDisposable
         packets.Dispose();
         StopWaterDebug("已卸載");
         statusWrite.GetAwaiter().GetResult();
+        planningTimesWrite.GetAwaiter().GetResult();
     }
 }
