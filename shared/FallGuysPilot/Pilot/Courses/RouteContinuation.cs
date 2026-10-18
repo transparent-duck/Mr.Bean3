@@ -51,7 +51,7 @@ internal sealed record RouteContinuation(PilotPose Pose, double At, HitTimedRout
 
     internal static RouteContinuation? Forecast(PilotCourseGeometry data, HitTimedRoutes.Plan plan,
         int firstLeg, int firstMove, bool started, double moveAt, PilotPose pose, double now, double lead, float speed,
-        float arrowRate = -MathF.Tau)
+        float arrowRate = -MathF.Tau, bool canWaitAtStart = true)
     {
         var legs = new List<HitTimedRoutes.Leg>();
         double at = now, target = now + lead; var feet = pose.Feet;
@@ -65,7 +65,7 @@ internal sealed record RouteContinuation(PilotPose Pose, double At, HitTimedRout
             var leg = plan.Legs[l];
             var moves = (PilotCourseGeometry.Move[])leg.Edge.Motion!;
             bool canWait = leg.Edge.From < data.Nodes.Length ? data.Nodes[leg.Edge.From].CanWait :
-                pose.Motion != MotionKind.Steering && pose.Force == Vector2.Zero;
+                canWaitAtStart && pose.Motion != MotionKind.Steering && pose.Force == Vector2.Zero;
             if (!(l == firstLeg && started) && canWait && at < leg.Departure)
             {
                 double end = Math.Min(target, leg.Departure);

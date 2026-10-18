@@ -173,7 +173,7 @@ public sealed partial class FallGuysPilot
         bool active = configuration.FallGuysShowActiveRoute;
         if (ImGui.Checkbox("顯示目前路線與等待時間", ref active))
         { configuration.FallGuysShowActiveRoute = active; configuration.Save(); }
-        if (active) ImGui.TextWrapped("綠：目前路線；橙：跳躍；黃圈：等待點。計算次數包含預先計算與調時；路線編號在產生新路線或調整時間時增加。");
+        if (active) ImGui.TextWrapped("綠：目前路線；橙：跳躍；黃圈：等待點。圈旁顯示預計停留秒數，抵達後顯示剩餘秒數。計算次數包含預先計算與調時；路線編號在產生新路線或調整時間時增加。");
         if (ImGui.Checkbox("顯示路網", ref routeOverlay) && routeOverlay) routeMap = -1;
         if (routeOverlay) ImGui.TextWrapped("自動顯示目前地圖。灰：步行；橙：跳躍；綠：載入的紀錄路線。");
         if (routeOverlay && routeMap == 0) ImGui.TextWrapped("青圈：入口候選；紫圈：出口候選；雙圈：兩者重合。");

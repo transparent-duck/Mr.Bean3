@@ -44,7 +44,8 @@ internal sealed partial class CourseRouteStep
         RouteContinuation? forecast = null;
         if (retain && plan is { Found: true })
             forecast = RouteContinuation.Forecast(data, plan, legIndex, moveIndex, moveStarted, moveAt,
-                c.Pose, c.Now, at - c.Now, speed, c.Act.ArrowRate);
+                c.Pose, c.Now, at - c.Now, speed, c.Act.ArrowRate,
+                course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose));
         // A worker deadline cannot authorize walking into an already known
         // hazard. If there is no safe continuation, search from the real feet.
         if (forecast != null && graph.HasConflict(c.Hazards, forecast.Prefix, 0, c.Pose.XZ, c.Now))
@@ -90,8 +91,9 @@ internal sealed partial class CourseRouteStep
             start = pose.Feet, retained = retainedRoute != null, continuingExposure, revision = checkedRouteRevision });
     }
 
-    private static bool CanStop(PilotPose pose) => pose.Grounded && !pose.Locked && pose.Force == Vector2.Zero &&
-        pose.Motion is not (MotionKind.Ice or MotionKind.Forced or MotionKind.Steering);
+    private bool CanStop(PilotPose pose) => pose.Grounded && !pose.Locked && pose.Force == Vector2.Zero &&
+        pose.Motion is not (MotionKind.Ice or MotionKind.Forced or MotionKind.Steering) &&
+        (course != CourseId.Hit || HitCourseGeometry.CanWait(pose));
 
     private void RejectBackground(PilotContext c, string reason)
     {
@@ -111,6 +113,12 @@ internal sealed partial class CourseRouteStep
         { RejectBackground(c, "forced-motion"); return; }
         if (continuation != null && !continuation.Matches(c.Pose, Math.Min(c.Now, continuation.At)))
         { RejectBackground(c, "motion-changed"); return; }
+        // A stationary query becomes stale as soon as the feet move or the
+        // terrain/status no longer permits a stop, even while the worker runs.
+        if (continuation == null && (!CanStop(c.Pose) ||
+            Vector2.DistanceSquared(c.Pose.XZ, routeQuery.Pose.XZ) > .15f * .15f ||
+            Math.Abs(c.Pose.Feet.Y - routeQuery.Pose.Feet.Y) > .4f))
+        { RejectBackground(c, "stationary-start-changed"); return; }
         // This check also runs while the worker is busy. Waiting for its result
         // before checking a newly dangerous old prefix is too late.
         if (continuation != null && checkedPrefixRevision != c.Hazards.RouteRevision)

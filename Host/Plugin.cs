@@ -144,6 +144,10 @@ public sealed class Plugin : IDalamudPlugin
             ImGui.TextUnformatted($"手動接管或中途停止: {statistics.Interrupted}");
             ImGui.TextUnformatted($"勝率: {statistics.WinRate * 100:0.0}%");
             ImGui.TextUnformatted("作者還沒有刷完. 故此該外掛僅在[陸行鳥區]生效.");
+            ImGui.TextUnformatted("要不要試試一鍵登頂妖宮");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("打開"))
+                Dalamud.Utility.Util.OpenLink("https://github.com/transparent-duck/NewFolder3");
         }
         ImGui.End();
         if (!open) Stop("cancelled");

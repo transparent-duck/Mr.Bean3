@@ -101,9 +101,12 @@ internal sealed unsafe class Actuator : IDisposable
 
     public void Face(float heading)
     {
-        arrowRequested = arrowLatched = false;
-        ClearJump();
-        Movement.SetFacingInput(heading);
+        if (!float.IsFinite(heading)) throw new ArgumentException("Facing requires a finite heading.");
+        Hold();
+        // Hit's forced-march preparation uses an exact facing while stationary.
+        // Clear ordinary turn input before writing so it cannot turn us back.
+        if (Service.LocalPlayer is { } player && Math.Abs(Geo.WrapAngle(heading - player.Rotation)) > .0001f)
+            ((NativeCharacter*)player.Address)->SetRotation(Geo.WrapAngle(heading));
         LastCommand = "face";
     }
 

@@ -11,12 +11,13 @@ internal sealed class HitWetStep : HitTimedStep
     private static readonly Lazy<HitTimedRoutes> Routes = new(() => new(
         [-332.6f, -336.05f, StartZ, -344f, -351.8f, -359.8f, EndZ, -372.6f],
         Enumerable.Range(0, 26).Select(i => -6.25f + i * .5f).ToArray(),
-        p => p.Y > StartZ || p.Y < EndZ, Motion,
+        p => CanWaitAt(p.Y), Motion,
         Enumerable.Range(0, 17).Select(i => -334f - i * 2).ToArray()));
     protected override HitTimedRoutes Graph => Routes.Value;
     internal static HitTimedRoutes InspectionGraph => Routes.Value;
     internal static void Prepare() => _ = Routes.Value;
-    protected override bool CanWait(PilotPose pose) => pose.Force == Vector2.Zero && (pose.Feet.Z > StartZ || pose.Feet.Z < EndZ);
+    internal static bool CanWaitAt(float z) => z > StartZ || z < EndZ;
+    protected override bool CanWait(PilotPose pose) => pose.Force == Vector2.Zero && CanWaitAt(pose.Feet.Z);
 
     // Split at force boundaries so every CTC segment has constant velocity.
     // The runtime PathPassage uses WalkNet with the measured external force.

@@ -207,5 +207,6 @@ internal sealed class HitCourseGeometry
             yield return data.Edge(data.Nodes.Length, offset + edge.To, [TimedMove(edge.Path, kind)], speed);
     }
 
-    internal static bool CanWait(PilotPose pose) => pose.Motion != MotionKind.Steering && pose.Force == Vector2.Zero;
+    internal static bool CanWait(PilotPose pose) => pose.Motion != MotionKind.Steering &&
+        pose.Force == Vector2.Zero && HitWetStep.CanWaitAt(pose.Feet.Z);
 }

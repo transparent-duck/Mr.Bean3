@@ -10,10 +10,11 @@ namespace MrBean.Modules.FallGuysPilot;
 public sealed partial class FallGuysPilot
 {
     private readonly record struct ActiveRouteLine(Vector3 From, Vector3 To, int Leg, int Move, bool Jump);
-    private readonly record struct ActiveRouteWait(Vector3 At, int Leg, double Departure);
+    private readonly record struct ActiveRouteWait(Vector3 At, int Leg, double Arrival, double Departure);
     private HitTimedRoutes.Plan? drawnActivePlan;
     private ActiveRouteLine[] activeRouteLines = [];
     private ActiveRouteWait[] activeRouteWaits = [];
+    private string[] activeRouteWaitLabels = [];
     private double nextActiveRouteText;
     private string activeRouteText = "";
 
@@ -37,9 +38,12 @@ public sealed partial class FallGuysPilot
                 }
                 if (moves.Length > 0 && moves[0].Path.Length > 0 &&
                     (leg == 0 || item.Departure > plan.Legs[leg - 1].Departure + plan.Legs[leg - 1].Edge.Duration + .1))
-                    waits.Add(new(moves[0].Path[0], leg, item.Departure));
+                    waits.Add(new(moves[0].Path[0], leg,
+                        leg == 0 ? double.NegativeInfinity : plan.Legs[leg - 1].Departure + plan.Legs[leg - 1].Edge.Duration,
+                        item.Departure));
             }
         activeRouteLines = lines.ToArray(); activeRouteWaits = waits.ToArray();
+        activeRouteWaitLabels = new string[activeRouteWaits.Length];
     }
 
     private void DrawActiveRouteOverlay()
@@ -60,6 +64,13 @@ public sealed partial class FallGuysPilot
                 string search = step.Searching ? step.Forecasting ? "｜計算下一區" : "｜計算路線中" :
                     step.AwaitingHandoff ? "｜等待切換路線" : "";
                 activeRouteText = $"{step.SectionName}｜計算 #{step.SearchNumber}／路線 #{step.RouteNumber}｜{state}{search}";
+                for (int i = 0; i < activeRouteWaits.Length; ++i)
+                {
+                    var wait = activeRouteWaits[i];
+                    if (wait.Leg < step.ActiveLeg || wait.Departure <= now) continue;
+                    double start = wait.Leg == step.ActiveLeg ? now : Math.Max(now, wait.Arrival);
+                    activeRouteWaitLabels[i] = $"等待 {Math.Max(0, wait.Departure - start):F1} 秒";
+                }
             }
         }
         ImGui.SetNextWindowPos(new Vector2(20, 180), ImGuiCond.Always);
@@ -80,10 +91,19 @@ public sealed partial class FallGuysPilot
                 Service.GameGui.WorldToScreen(line.To + lift, out var b, out _))
                 draw.AddLine(a, b, line.Jump ? 0xff40bfffu : 0xff80ef80u, 4);
         }
-        foreach (var wait in activeRouteWaits)
+        for (int i = 0; i < activeRouteWaits.Length; ++i)
+        {
+            var wait = activeRouteWaits[i];
             if (wait.Leg >= step.ActiveLeg && wait.Departure > now &&
                 Vector3.DistanceSquared(player.Position, wait.At) <= RouteDistance * RouteDistance &&
                 Service.GameGui.WorldToScreen(wait.At + lift, out var point, out _))
+            {
                 draw.AddCircle(point, 8, 0xff40ffffu, 0, 3);
+                var at = point + new Vector2(12, -ImGui.GetTextLineHeight() / 2);
+                var size = ImGui.CalcTextSize(activeRouteWaitLabels[i]);
+                draw.AddRectFilled(at - new Vector2(3, 2), at + size + new Vector2(3, 2), 0xc0202020);
+                draw.AddText(at, 0xff40ffffu, activeRouteWaitLabels[i]);
+            }
+        }
     }
 }
