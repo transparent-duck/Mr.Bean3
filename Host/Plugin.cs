@@ -47,7 +47,7 @@ public sealed class Plugin : IDalamudPlugin
             accessGate = MrBean3BuildProfile.CreateAccessGate(pluginInterface, pluginLog);
             if (MrBean3BuildProfile.Capabilities.TelemetryEndpoint is { } endpoint)
                 telemetry = new UsageCollector(pluginInterface.GetPluginConfigDirectory(), endpoint, pluginLog);
-            commands.AddHandler(ProductIdentity.Command, new CommandInfo(OnCommand) { HelpMessage = "開啟 Mr.Bean3；stop 停止。" });
+            commands.AddHandler(ProductIdentity.Command, new CommandInfo(OnCommand) { ShowInHelp = false });
             pluginInterface.UiBuilder.Draw += Draw;
             pluginInterface.UiBuilder.OpenConfigUi += Open;
             pluginInterface.UiBuilder.OpenMainUi += Open;
