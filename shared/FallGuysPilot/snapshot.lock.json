@@ -194,16 +194,13 @@
       "path": "Runtime/Mechanics/KnightBridgeSupport.cs"
     },
     {
-      "path": "Assets/ring-hazards.json.gz"
-    },
-    {
       "path": "Movement/DirectMovementController.cs"
     },
     {
-      "path": "Native/CourseScene.cs"
+      "path": "Native/SessionRecorder.cs"
     },
     {
-      "path": "Pilot/Courses/HitCourseGeometry.cs"
+      "path": "Native/CourseScene.cs"
     },
     {
       "path": "Pilot/Courses/HitCourse.cs"
@@ -257,6 +254,9 @@
       "path": "Pilot/PilotCollisionCapture.cs"
     },
     {
+      "path": "Pilot/HazardTiming.cs"
+    },
+    {
       "path": "Pilot/Hazards.cs"
     },
     {
@@ -290,16 +290,16 @@
       "path": "Pilot/FallGuysPilot.ActiveRouteOverlay.cs"
     },
     {
-      "path": "Pilot/Courses/HitForcedMarch.cs"
+      "path": "Pilot/Courses/HitCourseGeometry.cs"
     },
     {
-      "path": "Native/SessionRecorder.cs"
+      "path": "Pilot/Courses/HitForcedMarch.cs"
     },
     {
       "path": "Pilot/Courses/HitGround.cs"
     },
     {
-      "path": "Pilot/Courses/HitSteeringRoutes.cs"
+      "path": "Pilot/Courses/HitOpeningStep.cs"
     },
     {
       "path": "Native/PacketObservations.cs"
@@ -344,10 +344,10 @@
       "path": "Pilot/Courses/RouteExecution.cs"
     },
     {
-      "path": "Pilot/Courses/RouteContinuation.cs"
+      "path": "Assets/ring-hazards.json.gz"
     },
     {
-      "path": "Pilot/Courses/RingGoalSelection.cs"
+      "path": "Pilot/Courses/RouteContinuation.cs"
     },
     {
       "path": "Pilot/Courses/PilotCourseGeometry.cs"
@@ -389,7 +389,10 @@
       "path": "Pilot/Courses/HitSteeringStep.cs"
     },
     {
-      "path": "Pilot/Courses/HitOpeningStep.cs"
+      "path": "Pilot/Courses/HitSteeringRoutes.cs"
+    },
+    {
+      "path": "Pilot/Courses/RingGoalSelection.cs"
     },
     {
       "path": "Assets/ring-routes.json.gz"

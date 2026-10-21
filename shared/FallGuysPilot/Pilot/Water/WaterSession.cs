@@ -9,7 +9,7 @@ namespace MrBean.Modules.FallGuysPilot.Water;
 /// <summary>One phase, one plan and one clock for observation, manual loading and drawing.</summary>
 internal sealed class WaterSession
 {
-    internal const double PhaseTolerance = .15;
+    internal const double PhaseTolerance = 1e-6;
     private static readonly Lazy<(WaterRoutes Cache, double LoadMs)> Loaded = new(() =>
     {
         long began = Stopwatch.GetTimestamp();
@@ -81,7 +81,7 @@ internal sealed class WaterSession
                 {
                     double at = Epoch + pulse + cycle * model.Period;
                     if (at - model.Lead > end) break;
-                    station.Windows.Add((at - model.Lead, at + model.Tail));
+                    station.AddWindow(at - model.Lead, at + model.Tail);
                 }
             station.KnownUntil = double.PositiveInfinity;
         }
@@ -97,9 +97,8 @@ internal sealed class WaterSession
             Cache.PreparePattern(pattern);
             IntervalBuildMs = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
         }
-        // Keep the clock used by plans fixed within the tolerance. Compare to
-        // that published clock, so a series of small corrections cannot hide
-        // a larger displacement. Manual loading still selects the exact time.
+        // Publish clock corrections so retained plans use the same danger
+        // windows as new searches. Only numerical noise stays unpublished.
         ObservedEpoch = epoch;
         if (!HasPhase || Pattern != pattern || (manual ? Epoch != epoch :
             Math.Abs(Math.IEEERemainder(epoch - Epoch, Cache.Model.Period)) > PhaseTolerance))

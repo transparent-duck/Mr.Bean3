@@ -16,6 +16,8 @@ internal sealed class WaterModel
     public double Radius { get; set; }
     public double Lead { get; set; }
     public double Tail { get; set; }
+    // Padding already applied to serialized edge intervals; older assets omit it.
+    public double WindowPadding { get; set; }
     public double Speed { get; set; }
     public double LaneSpacing { get; set; }
     // Refinement preserves the original physical search horizon; inserting
@@ -370,7 +372,8 @@ internal sealed class WaterRoutes
         var intervals = new List<WaterInterval>();
         foreach (var e in exposures)
             foreach (double pulse in Model.Patterns[pattern].Pulses[e.Station])
-                AddPeriodic(intervals, pulse - Model.Lead - e.End, pulse + Model.Tail - e.Start);
+                AddPeriodic(intervals, pulse - Model.Lead - HazardTiming.Padding - e.End,
+                    pulse + Model.Tail + HazardTiming.Padding - e.Start);
         return Merge(intervals);
     }
 
@@ -675,6 +678,7 @@ internal sealed class WaterRoutes
     {
         using var zip = new GZipStream(stream, CompressionLevel.SmallestSize, leaveOpen: true);
         using var w = new BinaryWriter(zip);
+        Model.WindowPadding = HazardTiming.Padding;
         w.Write(JsonSerializer.Serialize(Model));
         w.Write(includeRoutes);
         w.Write(Nodes.Length); foreach (var p in Nodes) { w.Write(p.X); w.Write(p.Z); }
@@ -725,6 +729,17 @@ internal sealed class WaterRoutes
                 {
                     e.Forbidden[pattern] = new WaterInterval[r.ReadInt32()];
                     for (int j = 0; j < e.Forbidden[pattern].Length; ++j) e.Forbidden[pattern][j] = new(r.ReadDouble(), r.ReadDouble());
+                    double padding = HazardTiming.Padding - cache.Model.WindowPadding;
+                    if (padding > 0)
+                    {
+                        // Expand the union once on load, including cycle wrap.
+                        // Live queries continue to use precomputed intervals.
+                        var spans = new List<WaterInterval>();
+                        foreach (var span in e.Forbidden[pattern])
+                            cache.AddPeriodic(spans, span.Start - padding, span.End + padding);
+                        e.Forbidden[pattern] = Merge(spans);
+                    }
+                    else if (padding < 0) e.Forbidden[pattern] = cache.Forbid(e.Exposures, pattern);
                 }
             cache.Edges[i] = e;
         }
@@ -736,6 +751,7 @@ internal sealed class WaterRoutes
             for (int j = 0; j < route.Edges.Length; ++j) { route.Edges[j] = r.ReadInt32(); route.Departures[j] = r.ReadDouble(); }
             cache.Routes[i] = route;
         }
+        cache.Model.WindowPadding = HazardTiming.Padding;
         cache.Index();
         return cache;
     }

@@ -22,7 +22,7 @@ internal sealed class CourseHazards
         public float ForwardMin { get; set; }
         public float[] Endpoint { get; set; } = [];
         public float Pad { get; set; }
-        public HazardField.Station Station(HazardField field, uint action, double lead = .15, double tail = .10, string note = "")
+        public HazardField.Station Station(HazardField field, uint action, double lead = 0, double tail = 0, string note = "")
             => field.StationFor(new(action, Enum.Parse<HazardShape>(Kind), Size, Length, Lead: lead, Tail: tail,
                 ForwardMin: ForwardMin, Note: note, Pad: Pad),
                 new(Origin[0], Origin[1]), Rotation, new(Endpoint[0], Endpoint[1]));
@@ -44,8 +44,8 @@ internal sealed class CourseHazards
         public double PeriodError { get; set; }
         public Shape[] Shapes { get; set; } = [];
         public Body[] Bodies { get; set; } = [];
-        public double Lead { get; set; } = .15;
-        public double Tail { get; set; } = .10;
+        public double Lead { get; set; }
+        public double Tail { get; set; }
         public bool Permanent { get; set; }
         public double Epoch = double.NaN;
         internal double BodyEpoch = double.NaN;
@@ -212,18 +212,15 @@ internal sealed class CourseHazards
             // One radial wind band. The interleaved source receipts follow one
             // continuous heading; retain the full angle, including its direction.
             float rate = -.191f, heading = gust.Rotation; // retained live startup prior
-            bool changed = true;
             if (field.RingWind is { } previous)
             {
                 rate = previous.Rate;
                 float delta = Geo.WrapAngle(gust.Rotation - previous.Heading);
                 heading = previous.Heading + delta;
-                changed = Math.Abs(Geo.WrapAngle(delta -
-                    previous.Rate * (float)(gust.Seconds - previous.At))) > .08;
                 if (gust.Seconds <= previous.At + .02) return true;
                 rate = .8f * rate + .2f * delta / (float)(gust.Seconds - previous.At);
             }
-            if (changed) foreach (var station in wind) field.Changed(station);
+            foreach (var station in wind) field.Changed(station);
             field.RingWind = (gust.Seconds, heading, rate); return true;
         }
         if (course == CourseId.Ring && observation is MechanicCastObservation { ActionId: 35409 } charge)
@@ -314,7 +311,7 @@ internal sealed class CourseHazards
                         double residual = Math.Abs(Math.IEEERemainder(candidate - selected.ChoiceEpochs[i], selected.Period));
                         if (residual < error) { error = residual; choiceEpoch = candidate; }
                     }
-                changed |= error > .15;
+                changed |= error > 1e-6;
                 if (error > .2)
                 { selected.ActiveChoices[i] = false; changed = true; continue; }
                 selected.ChoiceEpochs[i] = choiceEpoch; ++remaining;
@@ -340,7 +337,7 @@ internal sealed class CourseHazards
         double epoch = at - selected.Offsets[phase];
         double epochError = phase < selected.OffsetErrors.Length ? selected.OffsetErrors[phase] : 0;
         if (observation is MechanicCastObservation || !double.IsFinite(selected.Epoch) || selected.Period <= 0 ||
-            epochError > selected.EpochError || Math.Abs(Math.IEEERemainder(epoch - selected.Epoch, selected.Period)) > .15)
+            epochError != selected.EpochError || Math.Abs(Math.IEEERemainder(epoch - selected.Epoch, selected.Period)) > 1e-6)
         {
             foreach (var station in selected.Stations) field.Changed(station);
             foreach (var station in selected.BodyStations) field.Changed(station);
@@ -351,17 +348,17 @@ internal sealed class CourseHazards
     private void Prepare(double now, double end)
     {
         foreach (var station in pendingRingColumnSites)
-        { station.Windows.Add((now, end)); station.KnownUntil = end; }
+        { station.AddWindow(now, end); station.KnownUntil = end; }
         foreach (var column in ringColumns.Values)
         {
             // Retain the source body through transit; the full corridor also
             // remains dangerous. Destination occupancy persists until the next
             // observed move, including idle time before another cast appears.
-            if (column.StopAt >= now) column.Origin.Windows.Add((now, Math.Min(end, column.StopAt)));
+            if (column.StopAt >= now) column.Origin.AddWindow(now, Math.Min(end, column.StopAt));
             column.Origin.KnownUntil = end;
             if (column.Destination is { } destination)
             {
-                if (column.StopAt <= end) destination.Windows.Add((Math.Max(now, column.StopAt), end));
+                if (column.StopAt <= end) destination.AddWindow(Math.Max(now, column.StopAt), end);
                 destination.KnownUntil = end;
             }
         }
@@ -370,7 +367,7 @@ internal sealed class CourseHazards
             if (group.Permanent)
             {
                 foreach (var station in group.Stations)
-                { station.Windows.Add((now, end)); station.KnownUntil = double.PositiveInfinity; }
+                { station.AddWindow(now, end); station.KnownUntil = double.PositiveInfinity; }
                 continue;
             }
             if (group.UsesChoices)
@@ -420,7 +417,7 @@ internal sealed class CourseHazards
             double half = MathF.PI / wind.Length;
             if (Math.Abs(windRate) < .001)
             {
-                if (Math.Abs(Geo.WrapAngle(angle - windHeading)) <= half) wind[i].Windows.Add((now, end));
+                if (Math.Abs(Geo.WrapAngle(angle - windHeading)) <= half) wind[i].AddWindow(now, end);
                 continue;
             }
             double center = windAt + Geo.WrapAngle(angle - windHeading) / windRate;
@@ -435,7 +432,7 @@ internal sealed class CourseHazards
         {
             double error = Math.Abs(n) * periodError;
             double a = start + n * period - error, b = finish + n * period + error;
-            if (b >= now) station.Windows.Add((a, b));
+            if (b >= now) station.AddWindow(a, b);
         }
         station.KnownUntil = end;
     }

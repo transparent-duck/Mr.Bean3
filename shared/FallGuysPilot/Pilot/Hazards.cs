@@ -24,15 +24,15 @@ internal enum HazardShape
 /// This table is course DATA: fill and tune it from recordings (see doc/FallGuys-Pilot.md).
 /// </summary>
 /// <param name="Period">Prior cycle length of one station in seconds; 0 = not periodic (casts/receipts only).</param>
-/// <param name="Lead">Seconds before a predicted receipt that the footprint is treated as dangerous.</param>
-/// <param name="Tail">Seconds after a predicted receipt.</param>
+/// <param name="Lead">Modeled danger before a predicted receipt, excluding the shared timing padding.</param>
+/// <param name="Tail">Modeled danger after a predicted receipt, excluding the shared timing padding.</param>
 /// <param name="Area">Optional origin filter (XMin, XMax, ZMin, ZMax) when one action has different families.</param>
 /// <param name="CastWarning">When true, a cast start predicts its activation after the packet cast duration.</param>
 /// <param name="Quantum">Origin grid (m) that identifies one station; coarser for noisy moving sources.</param>
 /// <param name="EffectRotationOffset">Converts effect-packet facing to the cast footprint direction.</param>
 /// <param name="Pad">Metres the footprint inflates for planning checks, per mechanism.</param>
 internal sealed record HazardSpec(uint ActionId, HazardShape Shape, float Size, float Length = 0,
-    double Period = 0, double Lead = 0.15, double Tail = 0.10, Vector4? Area = null,
+    double Period = 0, double Lead = 0, double Tail = 0, Vector4? Area = null,
     bool CastWarning = false, float Quantum = 0.25f, string Note = "", float ForwardMin = 0, double EndpointDwell = 0,
     float EffectRotationOffset = 0, float Pad = 0)
 {
@@ -59,10 +59,11 @@ internal sealed class HazardField
         public float Extent; // bounding radius from Origin
         // Prepared for one planning query.
         public readonly List<(double Start, double End)> Windows = [];
+        public void AddWindow(double start, double end)
+            => Windows.Add((start - HazardTiming.Padding, end + HazardTiming.Padding));
         public double KnownUntil;
         public long ChangedAt;
-        // Receipt freshness is separate from the threshold for invalidating a
-        // safe route: a small clock correction can still make another lane faster.
+        // Receipt freshness also drives optional route improvements.
         public long ObservedRevision;
 
         public bool Contains(Vector2 p, float radius)
@@ -174,10 +175,10 @@ internal sealed class HazardField
                 if (SpecFor(effect.ActionId, origin) is not { } spec) return;
                 var end = effect.PacketTargetPosition is { } e ? new Vector2(e.X, e.Z) : origin;
                 var station = StationFor(spec, origin, effect.Rotation + spec.EffectRotationOffset, end);
-                if (station.Receipts.Count == 0 || station.Period <= 0 ||
-                    Math.Abs(Math.IEEERemainder(effect.Seconds - station.Receipts[^1], station.Period)) > .15)
-                    Changed(station);
                 AddReceipt(station, effect.Seconds);
+                // Adding a receipt can change both the phase and fitted period.
+                // Padding is not a threshold for notifying retained routes.
+                Changed(station);
                 if (spec.EndpointDwell > spec.Tail && effect.PacketTargetPosition != null)
                 {
                     // The same column remains at the packet destination until
@@ -261,15 +262,16 @@ internal sealed class HazardField
                 throw new InvalidOperationException("Planning exceeded its hazard snapshot.");
             return;
         }
-        double end = now + horizon;
+        double end = now + horizon + HazardTiming.Padding;
+        double start = now - HazardTiming.Padding;
         foreach (var s in stations.Values)
         {
             s.Windows.Clear();
             var r = s.Receipts;
             double lead = s.Spec.Lead, tail = s.Spec.Tail;
             foreach (double t in r)
-                if (t + tail >= now - 1) s.Windows.Add((t - lead, t + tail));
-            if (s.CastEnd is { } castEnd) s.Windows.Add((castEnd - lead, castEnd + tail));
+                if (t + tail >= start - 1) s.AddWindow(t - lead, t + tail);
+            if (s.CastEnd is { } castEnd) s.AddWindow(castEnd - lead, castEnd + tail);
             s.KnownUntil = r.Count > 0 ? r[^1] : now;
             if (s.Period <= 0 || r.Count == 0 || r[^1] - r[0] < s.Period * 0.9) continue;
             double last = r[^1], cycleStart = last - s.Period + 0.05;
@@ -277,13 +279,13 @@ internal sealed class HazardField
                 for (int n = 1; ; ++n)
                 {
                     double t = r[i] + n * s.Period;
-                    if (t - lead > end) break;
                     double u = n * Jitter;
-                    if (t + tail + u >= now) s.Windows.Add((t - lead - u, t + tail + u));
+                    if (t - lead - u > end) break;
+                    if (t + tail + u >= start) s.AddWindow(t - lead - u, t + tail + u);
                 }
             s.KnownUntil = double.PositiveInfinity;
         }
-        ExtraWindows?.Invoke(now, end);
+        ExtraWindows?.Invoke(start, end);
     }
 
     /// <summary>Spatial exposure is static per station, so callers precompute it once per candidate.</summary>
