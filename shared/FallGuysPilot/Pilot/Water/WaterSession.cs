@@ -56,7 +56,7 @@ internal sealed class WaterSession
         }
         field = hazards;
         var model = Cache.Model;
-        var spec = new HazardSpec(34773, HazardShape.Circle, (float)model.Radius - PilotEngine.BodyRadius,
+        var spec = new HazardSpec(34773, HazardShape.Circle, (float)model.Radius,
             Period: model.Period, Lead: model.Lead, Tail: model.Tail);
         stations = model.Stations.Select(p =>
         {

@@ -11,12 +11,12 @@ namespace MrBean.Modules.FallGuysPilot.Courses;
 // Owns its graph, contact caches and hazard field on one serialized worker.
 // Published paths have separate contact dictionaries: live validation must not
 // mutate a graph that the next background search is using.
-internal sealed class CourseRoutePlanner(CourseId course) : IDisposable
+internal sealed class CourseRoutePlanner(CourseId course, bool crownStairBoost = false, int crownFrameRate = 30) : IDisposable
 {
     internal sealed record Query(PilotPose Pose, double At, float Speed, bool Carrying,
         HashSet<int>? Goals, HitTimedRoutes.Interval? Immobile, float? ArrowHeading,
         float ArrowRate, double WindExecution, double WaitHorizon, int? Section = null,
-        HitTimedRoutes.Edge? Continuation = null);
+        HitTimedRoutes.Edge? Continuation = null, float? EntryArrowHeading = null);
     internal sealed record Result(Query Query, HitTimedRoutes.Plan Plan, int Connectors,
         long Revision, bool Cold, double Milliseconds, string? Error = null);
     private readonly object worker = new();
@@ -47,14 +47,17 @@ internal sealed class CourseRoutePlanner(CourseId course) : IDisposable
         long began = Stopwatch.GetTimestamp(); bool cold = false;
         try
         {
-            data ??= PilotCourseGeometry.Load(course.ToString().ToLowerInvariant());
+            data ??= PilotCourseGeometry.Load(course.ToString().ToLowerInvariant(), crownStairBoost, crownFrameRate);
             if (query.Section is { } section)
             {
                 cold = sections == null;
                 sections ??= new(data);
-                var sources = Connectors(query);
+                var sources = data.IsKnight && section == 1
+                    ? query.Continuation is { } remainder ? new[] { remainder } : []
+                    : Connectors(query);
                 var result = sections.Search(section, snapshot, query.Pose.XZ, query.At,
-                    HitCourseGeometry.CanWait(query.Pose), sources, token: token);
+                    course != CourseId.Hit || HitCourseGeometry.CanWait(query.Pose), sources, token: token, pose: query.Pose,
+                    immobile: query.Immobile, arrowHeading: query.ArrowHeading, arrowRate: query.ArrowRate, entryArrowHeading: query.EntryArrowHeading);
                 return new(query, Copy(result.Plan), sources.Length, snapshot.RouteRevision, cold,
                     Stopwatch.GetElapsedTime(began).TotalMilliseconds, result.Error);
             }
@@ -73,7 +76,10 @@ internal sealed class CourseRoutePlanner(CourseId course) : IDisposable
             var plan = graph.Search(field, query.Pose.XZ, query.At, true,
                 sourceEdges: connectors, goals: query.Goals, immobile: query.Immobile,
                 arrowHeading: query.ArrowHeading, arrowRate: query.ArrowRate,
-                windExecution: query.WindExecution, waitHorizon: query.WaitHorizon);
+                windExecution: query.WindExecution, waitHorizon: query.WaitHorizon, entryArrowHeading: query.EntryArrowHeading);
+            plan = RouteSchedule.Retime(graph, field, plan, default, query.Pose, query.At,
+                new(data, course, query.Speed, query.ArrowRate, query.Immobile),
+                query.WindExecution, query.WaitHorizon) ?? plan;
             token.ThrowIfCancellationRequested();
             return new(query, Copy(plan), connectors.Length, snapshot.RouteRevision, cold,
                 Stopwatch.GetElapsedTime(began).TotalMilliseconds);
@@ -87,12 +93,14 @@ internal sealed class CourseRoutePlanner(CourseId course) : IDisposable
     }
     private HitTimedRoutes.Edge[] Connectors(Query query)
     {
-        var connectors = data!.Connectors(query.Pose, query.Speed);
+        var connectors = query.Section is { } section
+            ? data!.EntryConnectors(query.Pose, query.Speed, data.Sections[section].Entries).AsEnumerable()
+            : data!.Connectors(query.Pose, query.Speed);
         if (query.Continuation is { } remainder) connectors = connectors.Append(remainder);
         return connectors.ToArray();
     }
     internal static HitTimedRoutes.Edge Copy(HitTimedRoutes.Edge edge) => new(edge.From, edge.To, edge.Path)
-        { Motion = edge.Motion, ArrowStart = edge.ArrowStart, ArrowEnd = edge.ArrowEnd };
+        { Motion = edge.Motion, Destination = edge.Destination, ArrowStart = edge.ArrowStart, ArrowEnd = edge.ArrowEnd };
     internal static HitTimedRoutes.Plan Copy(HitTimedRoutes.Plan plan) => plan with
         { Legs = plan.Legs.Select(l => new HitTimedRoutes.Leg(Copy(l.Edge), l.Departure)).ToArray() };
     internal bool TryTake(out Result? result)

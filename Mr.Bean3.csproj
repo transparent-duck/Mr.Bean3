@@ -4,7 +4,7 @@
   <PropertyGroup>
     <AssemblyName>Mr.Bean3</AssemblyName>
     <RootNamespace>Mr.Bean3</RootNamespace>
-    <Version>7.55.9</Version>
+    <Version>7.55.10</Version>
     <Description>Standalone Fall Guys pilot host.</Description>
     <IsPackable>false</IsPackable>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -25,7 +25,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="*.cs" />
-    <Compile Include="Host\*.cs;Telemetry\*.cs;shared\FallGuysPilot\Pilot\**\*.cs;shared\FallGuysPilot\Native\*.cs;shared\FallGuysPilot\Movement\*.cs" />
+    <Compile Include="Host\*.cs;shared\FallGuysPilot\Pilot\**\*.cs;shared\FallGuysPilot\Native\*.cs;shared\FallGuysPilot\Movement\*.cs" />
     <ProjectReference Include="shared\FallGuysPilot\Runtime\FallGuys.Runtime.csproj" />
     <ProjectReference Include="third_party\OmenTools\OmenTools.csproj" />
     <EmbeddedResource Include="shared\FallGuysPilot\Assets\hit-water.bin.gz" LogicalName="MrBean.Pilot.HitWater" WithCulture="false" />

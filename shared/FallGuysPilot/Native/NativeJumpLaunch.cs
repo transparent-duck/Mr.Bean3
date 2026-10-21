@@ -45,6 +45,9 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
     public uint SpeedFrame { get; private set; }
     public double SpeedAt { get; private set; }
     public Vector3 SpeedPosition { get; private set; }
+    // Optional owner policy, sampled at the same native update as the movement speed.
+    public Func<Vector3, float?>? DirectionalTargetSpeed { get; set; }
+    private bool directionalOverrideActive;
     public NativeJumpLaunch(DirectMovementController? instantMovement = null)
     {
         this.instantMovement = instantMovement;
@@ -92,7 +95,12 @@ internal sealed unsafe class NativeJumpLaunch : IDisposable
             walk == PlayerMoveControllerWalk.Instance() && walk->Parent != null)
         {
             float target = walk->GetTargetSpeed();
-            if (float.IsFinite(target) && target > walk->CurrentSpeed)
+            float? requested = float.IsFinite(target) && target > 0 ? DirectionalTargetSpeed?.Invoke(SpeedPosition) : null;
+            bool restore = directionalOverrideActive;
+            directionalOverrideActive = requested.HasValue;
+            if (requested is { } requestedSpeed) target = requestedSpeed;
+            if (float.IsFinite(target) && target > 0 &&
+                (target > walk->CurrentSpeed || (requested.HasValue || restore) && target < walk->CurrentSpeed))
             {
                 AccelerationAt = SpeedAt;
                 AccelerationBefore = walk->CurrentSpeed;

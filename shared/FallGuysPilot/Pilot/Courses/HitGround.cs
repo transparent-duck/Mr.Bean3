@@ -48,6 +48,28 @@ internal sealed class HitGround
     }
 
     public bool Clear(Vector2 a, Vector2 b) => Clear(a, b, null);
+    // Long arrow rays must visit every support cell. Uniform distance samples
+    // can skip a missing cell when the ray clips just one corner of it.
+    internal bool ClearSupported(Vector2 a, Vector2 b)
+    {
+        int x = (int)Math.Floor((a.X - MinX) / Resolution), z = (int)Math.Floor((a.Y - MinZ) / Resolution);
+        int endX = (int)Math.Floor((b.X - MinX) / Resolution), endZ = (int)Math.Floor((b.Y - MinZ) / Resolution);
+        double dx = (double)b.X - a.X, dz = (double)b.Y - a.Y;
+        int sx = Math.Sign(dx), sz = Math.Sign(dz);
+        double tx = sx == 0 ? double.PositiveInfinity : (MinX + (x + (sx > 0 ? 1 : 0)) * (double)Resolution - a.X) / dx;
+        double tz = sz == 0 ? double.PositiveInfinity : (MinZ + (z + (sz > 0 ? 1 : 0)) * (double)Resolution - a.Y) / dz;
+        double stepX = sx == 0 ? double.PositiveInfinity : Resolution / Math.Abs(dx);
+        double stepZ = sz == 0 ? double.PositiveInfinity : Resolution / Math.Abs(dz);
+        for (int i = 0; i <= Width + Height; ++i)
+        {
+            if (x < 0 || x >= Width || z < 0 || z >= Height || Heights[z * Width + x] == null) return false;
+            if (x == endX && z == endZ) return Clear(a, b);
+            bool crossX = tx <= tz, crossZ = tz <= tx;
+            if (crossX) { x += sx; tx += stepX; }
+            if (crossZ) { z += sz; tz += stepZ; }
+        }
+        return false;
+    }
     public bool ClearFromGrounded(Vector3 a, Vector2 b) => Clear(new(a.X,a.Z), b, a.Y);
     private bool Clear(Vector2 a, Vector2 b, float? sourceHeight)
     {

@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using MrBean.Modules.Blunderville;
+using MrBean.Modules.FallGuysPilot.Courses;
 using MrBean.Host;
 using DeepDungeon.Fsd.Dalamud.Utilities;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -28,6 +29,7 @@ internal sealed unsafe class Actuator : IDisposable
     private bool arrowEntryNotified, arrowRequested, arrowLatched;
     private double arrowNotBefore;
     private float? arrowBefore;
+    private KnightArrowPolicy? arrowRegions;
     public float ArrowRate { get; set; } = -MathF.Tau;
     public long ArrowEntryWrites { get; private set; }
     public long ArrowTurnSamples { get; private set; }
@@ -36,10 +38,15 @@ internal sealed unsafe class Actuator : IDisposable
 
     /// <summary>Desired arrow heading. Native gain may write it once; later turns wait for rotation.</summary>
     public float? ArrowPreference { get; set; }
+    // Chosen before course prefetch. Route targets must not overwrite the one
+    // native entry direction; subsequent turns follow the observed arrow.
+    public float? ArrowEntryHeading { get; set; }
+    internal bool ArrowLatched => arrowLatched;
     public int Nudges { get; private set; }
     public float LargestNudge { get; private set; }
     public long Jumps { get; private set; }
     public bool ImmediateJump { get; set; }
+    public bool CrownStairBoost { get; }
     public double JumpDispatchAt { get; private set; }
     public Vector3 JumpDispatchFeet { get; private set; }
     public bool JumpAccepted { get; private set; }
@@ -54,9 +61,12 @@ internal sealed unsafe class Actuator : IDisposable
     public bool CancelledByUser => Movement.WasCancelledByUser;
     public Exception? NativeFault => callback.Fault;
 
-    public Actuator()
+    public Actuator(bool crownStairBoost = false)
     {
+        CrownStairBoost = crownStairBoost;
         launch = new(Movement);
+        if (crownStairBoost) launch.DirectionalTargetSpeed = feet =>
+            PilotCourseGeometry.CrownBoostRegion(feet) ? PilotCourseGeometry.CrownBoostSpeed : null;
         // Recreating the actuator inside an existing status is not a new entry.
         if (Service.LocalPlayer is { } player)
         {
@@ -79,6 +89,7 @@ internal sealed unsafe class Actuator : IDisposable
 
     public void Walk(Vector2 direction)
     {
+        ClearArrowRegions();
         arrowRequested = false;
         arrowLatched = false;
         if (direction == Vector2.Zero) { Hold(); return; }
@@ -92,6 +103,7 @@ internal sealed unsafe class Actuator : IDisposable
 
     public void Hold()
     {
+        ClearArrowRegions();
         arrowRequested = false;
         arrowLatched = false;
         ClearJump();
@@ -112,6 +124,7 @@ internal sealed unsafe class Actuator : IDisposable
 
     public void Arrow(Vector2 direction, double notBefore)
     {
+        ClearArrowRegions();
         if (direction == Vector2.Zero) { Hold(); return; }
         float heading = Geo.Heading(direction);
         // A new graph heading needs a new native alignment, even if its turn
@@ -128,8 +141,24 @@ internal sealed unsafe class Actuator : IDisposable
 
     private float arrowRequestedHeading;
 
+    internal void ArrowRegions(KnightArrowPolicy policy)
+    {
+        if (arrowRegions != policy)
+        {
+            ClearArrowRegions(); arrowRegions = policy;
+            arrowRequested = arrowLatched = false; ArrowPreference = null;
+            Movement.Hold();
+        }
+    }
+
+    private void ClearArrowRegions()
+    {
+        arrowRegions?.Reset(); arrowRegions = null;
+    }
+
     public void Steer(Vector3 feet, Vector2 direction)
     {
+        ClearArrowRegions();
         if (direction == Vector2.Zero) { Hold(); return; }
         direction = Vector2.Normalize(direction);
         Movement.SetSteeringInput(feet + new Vector3(direction.X, 0, direction.Y) * 4, direction);
@@ -154,9 +183,11 @@ internal sealed unsafe class Actuator : IDisposable
 
     public void Release()
     {
+        ClearArrowRegions();
         ClearJump();
         Movement.Release();
         ArrowPreference = null;
+        ArrowEntryHeading = null;
         arrowRequested = false;
         LastCommand = "release";
     }
@@ -222,11 +253,16 @@ internal sealed unsafe class Actuator : IDisposable
         if (manager == null || manager->GetStatusIndex(3694) < 0) return;
         if (!Movement.TryReadForcedDirection(out float actual)) return;
         arrowBefore = actual;
+        if (arrowRegions is { } policy && Movement.Enabled)
+        {
+            if (policy.Next(player.Position, actual, PilotPose.Now))
+            { Movement.SetWorldDirectionalInput(Geo.FromHeading(actual)); LastCommand = "arrow-region-walk"; }
+            else { Movement.Hold(); LastCommand = "arrow-region-turn"; }
+            return;
+        }
         if (!arrowRequested || ArrowPreference is not { } heading || !Movement.Enabled) return;
-        float tolerance = Math.Max(.01f, Math.Abs(ArrowRate) * callback.FrameSeconds * .55f);
-        float error = Math.Abs(Geo.WrapAngle(heading - actual));
-        if (error > .15f) arrowLatched = false;
-        if (PilotPose.Now + callback.FrameSeconds * .5 >= arrowNotBefore && (arrowLatched || error <= tolerance))
+        if (RouteExecution.ArrowWalk(ref arrowLatched, actual, heading, PilotPose.Now,
+            arrowNotBefore, callback.FrameSeconds, ArrowRate))
         {
             arrowLatched = true;
             Movement.SetWorldDirectionalInput(Geo.FromHeading(actual));
@@ -241,7 +277,7 @@ internal sealed unsafe class Actuator : IDisposable
         // That observation must not consume this one permitted entry write.
         if (arrowEntryNotified) return;
         arrowEntryNotified = true;
-        if (ArrowPreference is { } heading && Movement.Enabled && Movement.TryWriteForcedDirection(heading)) ++ArrowEntryWrites;
+        if (ArrowEntryHeading is { } heading && Movement.Enabled && Movement.TryWriteForcedDirection(heading)) ++ArrowEntryWrites;
     }
 
     private void ObserveArrowTurn()

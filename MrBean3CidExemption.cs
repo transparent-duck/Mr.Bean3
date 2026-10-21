@@ -63,9 +63,8 @@ internal static class MrBean3CidExemption
 }
 
 /// <summary>
-/// Gate wrapper that bypasses the inner gate and the build-profile region
-/// restriction while the current content id verifies against the exemption
-/// table. Every other context delegates unchanged.
+/// Gate wrapper that bypasses the inner gate while the current content id
+/// verifies against the exemption table. Every other context delegates unchanged.
 /// </summary>
 internal sealed class MrBean3CidExemptGate : IMrBean3AccessGate
 {
@@ -83,8 +82,6 @@ internal sealed class MrBean3CidExemptGate : IMrBean3AccessGate
         Exempt ? MrBean3AccessDecision.Allowed() : inner.Current;
 
     public string StartDenialNotice => Exempt ? string.Empty : inner.StartDenialNotice;
-
-    public bool IsRegionRestrictionExempt => Exempt;
 
     public bool TryAuthorize(out string error)
     {

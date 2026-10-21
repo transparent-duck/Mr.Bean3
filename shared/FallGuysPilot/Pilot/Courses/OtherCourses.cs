@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using MrBean.FallGuys;
@@ -10,21 +9,31 @@ namespace MrBean.Modules.FallGuysPilot.Courses;
 internal sealed class KnightCourse : GraphCourse { public override CourseId Course => CourseId.Knight; }
 internal sealed class RingCourse : GraphCourse { public override CourseId Course => CourseId.Ring; }
 internal sealed class CrystalCourse : GraphCourse { public override CourseId Course => CourseId.Crystal; }
-internal sealed class CrownCourse : GraphCourse { public override CourseId Course => CourseId.Crown; }
+internal sealed class CrownCourse(bool stairBoost = false) : GraphCourse
+{
+    public override CourseId Course => CourseId.Crown;
+    protected override bool CrownStairBoost => stairBoost;
+}
 
 internal abstract class GraphCourse : CourseScript
 {
     public override HazardSpec[] Hazards => CourseHazards.Specs(Course);
-    public override Step[] Build(PilotPose start) => [new CourseRouteStep(Course)
+    protected virtual bool CrownStairBoost => false;
+    public override Step[] Build(PilotPose start) => [new CourseRouteStep(Course, CrownStairBoost)
         { Name = Course.ToString().ToLowerInvariant() + "-ctc", Zone = new(-1000, 1000, -1000, 1000) }];
 }
 
 // Each search starts at the actual feet and ends at the current course goal.
 // Receipts do not replace an executing race route. Hits, displaced feet and
 // changed Crystal carry state relocalize; Ring follows the observed wind angle.
-internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposable
+internal sealed partial class CourseRouteStep(CourseId course, bool crownStairBoost = false) : Step, IDisposable
 {
-    private readonly PilotCourseGeometry data = PilotCourseGeometry.Load(course.ToString().ToLowerInvariant());
+    private PilotCourseGeometry data = PilotCourseGeometry.Load(course.ToString().ToLowerInvariant(), crownStairBoost);
+    private Dictionary<int, PilotCourseGeometry>? crownProfiles;
+    internal int CrownFrameRate { get; private set; } = 30;
+    private double crownFrameSeconds = 1d / 30;
+    private int pendingCrownRate;
+    private double crownRateSince;
     private HitTimedRoutes graph = null!;
     private HitTimedRoutes.Plan? activePlan;
     private HitTimedRoutes.Plan? plan
@@ -34,6 +43,7 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
         {
             if (value is { Found: true } && !ReferenceEquals(value, activePlan)) ++RouteNumber;
             activePlan = value;
+            execution = default;
         }
     }
     internal HitTimedRoutes.Plan? ActivePlan => plan;
@@ -47,12 +57,17 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
     internal double WaitUntil => plan is { Found: true } && legIndex < plan.Legs.Length && !moveStarted
         ? plan.Legs[legIndex].Departure : 0;
     internal string SectionName => sections == null ? course.ToString() : data.Sections[sectionIndex].Name;
-    private PilotCourseGeometry.Move[] moves = [];
-    private Passage? passage;
-    private int legIndex, moveIndex, goal = -1;
-    private double seenHit, progressAt, nextRetry, moveAt, moveDuration, moveEndsAt;
+    private RouteExecution execution;
+    private PilotCourseGeometry.Move[] moves { get => execution.Moves ?? []; set => execution.Moves = value; }
+    private int legIndex { get => execution.Leg; set => execution.Leg = value; }
+    private int moveIndex { get => execution.Move; set => execution.Move = value; }
+    private int goal = -1;
+    private double seenHit, progressAt, nextRetry;
+    private RouteExecution.Options MotionOptions => new(data, course, speed,
+        arrowRate, hadBomb ? new(bombExpires - BombLead, bombExpires + BombTail) : null);
+    private float arrowRate = -MathF.Tau;
     private Vector2 progressPoint;
-    private bool moveStarted;
+    private bool moveStarted { get => execution.Started; set => execution.Started = value; }
     private bool nativeIce, wasOnIce;
     private bool hadBomb, bombHolding;
     private double bombExpires = double.NaN;
@@ -78,6 +93,11 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
 
     public override bool ObserveMotion(PilotContext c)
     {
+        arrowRate = c.Act.ArrowRate;
+        if (plan is { Found: true } && (c.Pose.Motion is MotionKind.Ice or MotionKind.Forced || c.Pose.Has(3737)))
+            execution.Advance(plan, c.Pose, c.Now, MotionOptions);
+        if (ObserveIceEntry(c)) return true;
+        UpdateCrownTiming(c);
         PollSections(c);
         PollBackground(c, false);
         if (course == CourseId.Hit)
@@ -94,7 +114,7 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
                         legIndex = 0;
                         moveIndex = Array.FindIndex(moves, m => m.Kind == "forced") + 1;
                         if (moveIndex >= moves.Length) { legIndex = 1; moves = []; moveIndex = 0; }
-                        moveStarted = false; passage = null;
+                        moveStarted = false; execution.ClearMove();
                         seenHit = c.LastHitAt;
                         if (plannedRevision != c.Hazards.RouteRevision &&
                             graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, plannedRevision)) plan = null;
@@ -171,20 +191,52 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
 
     public override void Enter(PilotContext c)
     {
+        c.Act.ArrowEntryHeading = course == CourseId.Knight ? Random.Shared.NextSingle() * MathF.Tau - MathF.PI : null;
+        if (c.Act.ArrowEntryHeading is { } entry)
+            c.Log("knight-arrow-entry-heading", new { at = c.Now, heading = entry });
+        startingCrown = course == CourseId.Crown && !double.IsFinite(c.ReleasedAt);
+        preparedCrownStart = false;
         CourseHazards.Install(course, c.Hazards);
         if (course == CourseId.Hit) c.Water.Attach(c.Hazards);
         c.Act.ImmediateJump = course == CourseId.Ring;
+        if (course == CourseId.Crown && crownStairBoost)
+        {
+            crownProfiles ??= new() { [30] = data };
+            foreach (int fps in new[] { 60 })
+                if (!crownProfiles.ContainsKey(fps)) crownProfiles[fps] = PilotCourseGeometry.Load("crown", true, fps);
+            crownFrameSeconds = c.Pose.Raw.RealFrameSeconds ?? 1d / 30;
+            CrownFrameRate = PilotCourseGeometry.CrownFrameRate(crownFrameSeconds);
+            data = crownProfiles[CrownFrameRate];
+            c.Log("crown-speed-profile", new { at = c.Now, fps = CrownFrameRate, frameSeconds = crownFrameSeconds });
+        }
         graph = data.Graph(speed); seenHit = c.LastHitAt; plan = null;
         sections?.Dispose();
         if (data.Sections.Length > 0) sections = new(data);
         background?.Dispose();
-        background = new(course);
+        background = new(course, crownStairBoost, CrownFrameRate);
         CancelBackground(); replanWanted = false; requestAfter = 0;
         if (course == CourseId.Crystal)
             lowerReturnGoals = Enumerable.Range(0, data.Nodes.Length)
                 .Where(i => data.Nodes[i].ReturnFloor).ToHashSet();
         progressAt = c.Now; progressPoint = c.Pose.XZ;
         wasOnIce = c.Pose.Has(3693);
+    }
+    private void UpdateCrownTiming(PilotContext c)
+    {
+        if (crownProfiles == null) return;
+        crownFrameSeconds += ((c.Pose.Raw.RealFrameSeconds ?? crownFrameSeconds) - crownFrameSeconds) * .125;
+        int fps = PilotCourseGeometry.CrownFrameRate(crownFrameSeconds);
+        if (fps != pendingCrownRate) { pendingCrownRate = fps; crownRateSince = c.Now; }
+        if (fps == CrownFrameRate || c.Now - crownRateSince < .5 || !c.Pose.Grounded || c.Pose.Locked ||
+            moveStarted && moveIndex < moves.Length && moves[moveIndex].Kind == "jump") return;
+        // Change only at a controllable boundary, keeping the worker and live
+        // graph on the same baked native-startup profile. Never interrupt flight.
+        CancelBackground(); background?.Dispose();
+        if (startingCrown) preparedCrownStart = false;
+        CrownFrameRate = fps; data = crownProfiles[fps]; graph = data.Graph(speed);
+        graph.UseWaitingSearch = true; background = new(course, true, fps);
+        plan = null; moves = []; moveStarted = false; execution.ClearMove();
+        c.Log("crown-speed-profile", new { at = c.Now, fps, frameSeconds = crownFrameSeconds });
     }
     private int Goal(PilotPose pose)
     {
@@ -208,19 +260,9 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
         if (course == CourseId.Knight && c.Pose.Grounded && onIce != wasOnIce)
         {
             c.Log("course-motion-boundary", new { at = c.Now, ice = onIce, feet = c.Pose.Feet });
-            plan = null;
+            clockDirty = true;
         }
         if (c.Pose.Grounded) wasOnIce = onIce;
-        if (nativeIce)
-        {
-            nativeIce = false;
-            // Unexpected native movement invalidates a walk/jump continuation.
-            // A planned slide may continue only from its actual endpoint.
-            bool expected = moveStarted && moves.Length > moveIndex && moves[moveIndex].Kind == "ice";
-            float error = expected ? Vector2.Distance(c.Pose.XZ, moves[moveIndex].Path[^1].XZ()) : float.PositiveInfinity;
-            c.Log("course-ice-land", new { at = c.Now, feet = c.Pose.Feet, expected, error = expected ? error : (float?)null });
-            if (!expected || error > .15f) plan = null;
-        }
         if (course == CourseId.Crown && c.Pose.Feet.Y > 40 && c.Pose.Feet.Z < 122)
         {
             var goalPoint = new Vector2(-.015258789f, 119.98169f);
@@ -233,22 +275,26 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
             bool bomb = c.Pose.Has(3802);
             if (bomb != hadBomb)
             {
-                plan = null; hadBomb = bomb; bombHolding = false;
+                plan = null; sections?.Cancel(); preparedSection = null;
+                hadBomb = bomb; bombHolding = false;
                 bombExpires = double.NaN;
                 if (bomb)
                     foreach (var status in c.Pose.Raw.Statuses)
                         if (status.Id == 3802) { bombExpires = c.Now + Math.Max(0, status.Remaining); break; }
                 c.Log("course-bomb", new { at = c.Now, active = bomb, expires = double.IsFinite(bombExpires) ? bombExpires : (double?)null });
             }
-            if (bomb && c.Now >= bombExpires - BombLead)
+            if (RouteExecution.BombWait(c.Pose, c.Now, MotionOptions) is { } bombWait)
             {
                 if (!bombHolding) c.Log("course-bomb-hold", new { at = c.Now, expires = bombExpires, feet = c.Pose.Feet });
-                bombHolding = true; c.Act.Hold(); progressAt = c.Now; plan = null; return false;
+                bombHolding = true; bombWait.Apply(c); progressAt = c.Now; return false;
             }
             foreach (var status in c.Pose.Raw.Statuses)
                 if (status.Id == 3694 && status.Param != 0) c.Act.ArrowRate = -unchecked((short)status.Param) * MathF.PI / 180;
         }
         int currentGoal = Goal(c.Pose);
+        arrowRate = c.Act.ArrowRate;
+        execution.ArrowLatched = c.Act.ArrowLatched;
+        if (TickArrowRegions(c)) return false;
         if (course == CourseId.Crystal)
         {
             if (c.LastDeliveryAt > seenDelivery)
@@ -266,7 +312,7 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
             float.IsFinite(ringGoalHeading) && Math.Abs(Geo.WrapAngle(wind.Heading - ringGoalHeading)) > .01f)
             RequestBackground(c);
         ObserveRouteClock(c);
-        if (plan is { Found: true } && c.Pose.Grounded &&
+        if (!clockOwnsValidation && plan is { Found: true } && c.Pose.Grounded &&
             plannedRevision != c.Hazards.RouteRevision)
         {
             long previousRevision = plannedRevision;
@@ -274,13 +320,12 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
             if (graph.HasConflict(c.Hazards, plan, legIndex, c.Pose.XZ, c.Now, previousRevision))
             {
                 c.Log("course-new-danger", new { at = c.Now, course, feet = c.Pose.Feet });
-                if (background != null) RequestBackground(c);
-                else if (moveStarted || moveIndex != 0 || !Reschedule(c)) plan = null;
+                RequestBackground(c);
             }
         }
         float available = c.Pose.Raw.Walk?.AvailableTargetSpeed ?? 6;
         float actualSpeed = course == CourseId.Crystal && available > 6 ? MathF.Round(available, 2) : 6;
-        bool displaced = c.Now - progressAt > 2.5 && Vector2.Distance(progressPoint, c.Pose.XZ) < .1f;
+        bool displaced = !startingCrown && c.Now - progressAt > 2.5 && Vector2.Distance(progressPoint, c.Pose.XZ) < .1f;
         if (plan == null || c.Pose.Grounded && (seenHit != c.LastHitAt || goal != currentGoal || speed != actualSpeed || displaced))
         {
             if (c.Now < nextRetry && plannedRevision == c.Hazards.RouteRevision) { c.Act.Hold(); return false; }
@@ -314,124 +359,20 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
             return false;
         }
         PrepareNextSection(c);
-        var leg = plan.Legs[legIndex];
-        if (moves.Length == 0) { moves = (PilotCourseGeometry.Move[])leg.Edge.Motion!; moveIndex = 0; }
-        var move = moves[moveIndex];
-        if (routeQuery == null && !moveStarted && moveIndex == 0 && c.Now > leg.Departure + .12 && c.Pose.Grounded)
-        {
-            c.Log("course-retime", new { at = c.Now, late = c.Now - leg.Departure, feet = c.Pose.Feet });
-            if (!Reschedule(c)) Select(c);
-            return true;
-        }
-        bool canWait = leg.Edge.From < graph.Nodes.Count ? graph.Nodes[leg.Edge.From].CanWait :
-            course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose);
-        if (c.Now < leg.Departure && canWait)
-        {
-            if (c.Pose.Has(3694) && move.Kind == "arrow") c.Act.Arrow(Geo.Toward(move.Path[0].XZ(), move.Path[^1].XZ()), leg.Departure);
-            else c.Act.Hold();
-            progressAt = c.Now; return false;
-        }
-        if (!moveStarted)
-        {
-            moveDuration = PilotCourseGeometry.Trajectory([move], speed)[^1].Time;
-            if (move.Kind is "prepare-turn" or "forced-wait" or "forced")
-            {
-                moveEndsAt = leg.Departure;
-                for (int i = 0; i <= moveIndex; ++i)
-                    moveEndsAt += PilotCourseGeometry.Trajectory([moves[i]], speed)[^1].Time;
-            }
-            if (hadBomb && move.Kind is "jump" or "ice" && c.Now < bombExpires + BombTail &&
-                c.Now + moveDuration >= bombExpires - BombLead)
-            { c.Act.Hold(); progressAt = c.Now; return false; }
-            moveAt = c.Now;
-            var points = move.Path;
-            passage = move.Kind == "steering" ? new HitSteeringPath { Name = Name + ":steering", Points = points } :
-                new PathPassage { Name = Name + ":" + move.Kind, Points = points,
-                    JumpFrom = move.Kind == "jump" ? [0] : [], ArriveRadius = .12f };
-            passage.Begin(c); moveStarted = true;
-            c.Log("course-motion", new { course, at = c.Now, legIndex, moveIndex, move.Kind, feet = c.Pose.Feet });
-        }
-        bool done;
-        if (move.Kind == "join") done = true;
-        else if (move.Kind == "recovery")
-        {
-            done = c.Now >= leg.Departure + moveDuration;
-            if (!done) { c.Act.Hold(); return false; }
-        }
-        else if (move.Kind is "prepare-turn" or "forced-wait" or "forced")
-        {
-            if (move.Facing is { } heading) c.Act.Face(heading);
-            else c.Act.Hold();
-            progressAt = c.Now;
-            done = move.Kind != "forced" && c.Now >= moveEndsAt &&
-                (move.Facing == null || Math.Abs(Geo.WrapAngle(c.Pose.Facing - move.Facing.Value)) <= .02f);
-            if (!done) return false;
-        }
-        else if (move.Kind == "arrow")
-        {
-            var points = move.Path; var target = points[^1].XZ();
-            var delta = target - points[0].XZ();
-            done = Vector2.Distance(c.Pose.XZ, target) < .2f ||
-                delta.LengthSquared() > 0 && Vector2.Dot(c.Pose.XZ - target, delta) >= 0;
-            if (!done)
-            {
-                // The search times this fixed native heading. Pursuing the
-                // endpoint changed it near arrival and could demand another
-                // full rotation after the planned turn had already completed.
-                var direction = Geo.Toward(points[0].XZ(), target);
-                c.Act.ArrowPreference = Geo.Heading(direction);
-                if (c.Pose.Has(3694)) c.Act.Arrow(direction, leg.Departure);
-                else c.Act.Walk(direction);
-            }
-        }
-        else if (move.Kind == "ice")
-        {
-            var target = move.Path[^1].XZ();
-            done = Vector2.Distance(c.Pose.XZ, target) < .15f;
-            if (!done)
-            {
-                if (c.Now - moveAt > .5) { plan = null; return false; }
-                c.Act.Walk(Geo.Toward(c.Pose.XZ, target));
-                // Engine holds while the native timeline runs. Once it returns,
-                // the actual endpoint decides whether the next slide can start.
-                return false;
-            }
-        }
-        else
-        {
-            done = passage!.Follow(c);
-            if (move.Kind == "drop" && done && !c.Pose.Grounded) { c.Act.Hold(); return false; }
-        }
-        if (!done) return false;
-        moveStarted = false; passage = null;
-        if (++moveIndex == moves.Length)
-        { ++legIndex; moves = []; ObserveRouteArrival(c, leg); }
-        progressAt = c.Now;
-        return true;
+        int previousLeg = legIndex, previousMove = moveIndex;
+        arrowRate = c.Act.ArrowRate;
+        var command = execution.Advance(plan, c.Pose, c.Now, MotionOptions);
+        if (command.Started)
+            c.Log("course-motion", new { course, at = c.Now, legIndex, moveIndex,
+                Kind = moveIndex < moves.Length ? moves[moveIndex].Kind : "complete", feet = c.Pose.Feet });
+        if (previousLeg != legIndex || previousMove != moveIndex)
+        { clockDirty = true; progressAt = c.Now; }
+        if (command.Relocalize) { plan = null; return true; }
+        command.Apply(c);
+        if (command.Kind is RouteExecution.Input.Hold or RouteExecution.Input.Face) progressAt = c.Now;
+        return command.Complete && sections != null && sectionIndex + 1 < data.Sections.Length && AdvanceSection(c);
     }
-    public override Vector2? Aim(PilotContext c) => passage?.Aim(c);
-
-    private bool Reschedule(PilotContext c, double? readyAt = null)
-    {
-        if (plan is not { Found: true } || course == CourseId.Hit && march.Pending) return false;
-        if (background != null)
-        { CancelBackground(); BeginBackground(c, true, readyAt); return true; }
-        long began = Stopwatch.GetTimestamp();
-        ++SearchNumber;
-        var result = graph.Reschedule(c.Hazards, plan, legIndex, c.Pose.XZ, Math.Max(c.Now, readyAt ?? c.Now),
-            course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose),
-            immobile: hadBomb ? new(bombExpires - BombLead, bombExpires + BombTail) : null,
-            arrowHeading: c.Pose.Has(3694) ? c.Pose.Raw.ArrowDirection : null, arrowRate: c.Act.ArrowRate,
-            windExecution: windExecution, waitHorizon: course == CourseId.Crown ? 45 : 12);
-        double elapsed = Stopwatch.GetElapsedTime(began).TotalSeconds;
-        c.Now += elapsed;
-        if (!result.Found) return false;
-        plan = result;
-        legIndex = moveIndex = 0; moves = []; moveStarted = false; passage = null;
-        plannedRevision = c.Hazards.RouteRevision;
-        c.Log("course-reschedule", new { at = c.Now, course, elapsed, plan.Arrival, legs = plan.Legs.Length });
-        return true;
-    }
+    public override Vector2? Aim(PilotContext c) => execution.Aim;
 
     private void Select(PilotContext c, double? readyAt = null)
     {
@@ -443,45 +384,6 @@ internal sealed partial class CourseRouteStep(CourseId course) : Step, IDisposab
             if (routeQuery != null || c.Now >= requestAfter) BeginBackground(c, false, readyAt);
             return;
         }
-        c.Act.ClearJump();
-        long started = Stopwatch.GetTimestamp();
-        graph = data.Graph(speed, course == CourseId.Crystal && goal > 0);
-        graph.UseWaitingSearch = course == CourseId.Crown;
-        double selectedAt = c.Now;
-        bool forcedMotion = course == CourseId.Hit && march.Pending && (c.Pose.Grounded || march.Native);
-        var connectors = (forcedMotion ? march.Connectors(data, c, speed) : data.Connectors(c.Pose, speed)).ToArray();
-        ++SearchNumber;
-        plan = graph.Search(c.Hazards, c.Pose.XZ, readyAt ?? c.Now,
-            !forcedMotion && (course != CourseId.Hit || HitCourseGeometry.CanWait(c.Pose)),
-            sourceEdges: connectors, goals: course == CourseId.Ring ? RingGoals(c) :
-                course == CourseId.Crystal && goal == 0 && returnToLower ? lowerReturnGoals :
-                goal >= 0 ? new HashSet<int> { goal } : null,
-            immobile: hadBomb ? new(bombExpires - BombLead, bombExpires + BombTail) : null,
-            arrowHeading: c.Pose.Has(3694) ? c.Pose.Raw.ArrowDirection : null, arrowRate: c.Act.ArrowRate,
-            // Crown spans entrance circles, hammers and the upper waves. In
-            // Crown-034151 a valid 46.21 s route exceeded shortest + 12 s.
-            windExecution: windExecution, waitHorizon: course == CourseId.Crown ? 45 : 12);
-        c.Now += Stopwatch.GetElapsedTime(started).TotalSeconds;
-        legIndex = 0;
-        if (!forcedMotion && plan.Found && plan.Legs.Length > 0 && c.Now > plan.Legs[0].Departure)
-            if (!Reschedule(c, readyAt)) plan = plan with { Found = false };
-        if (course == CourseId.Crystal && plan.Found)
-            for (int i = 1; i < plan.Legs.Length; ++i)
-            {
-                var previous = plan.Legs[i - 1]; var next = plan.Legs[i];
-                double arrived = previous.Departure + previous.Edge.Duration;
-                if (data.Nodes[next.Edge.From].WindBrace && next.Departure > arrived + .1)
-                    c.Log("crystal-brace-plan", new { at = c.Now, node = next.Edge.From,
-                        target = data.Nodes[next.Edge.From].Feet, arrived, depart = next.Departure, windExecution });
-            }
-        seenHit = c.LastHitAt; plannedRevision = c.Hazards.RouteRevision;
-        nextRetry = 0;
-        legIndex = moveIndex = 0; moves = []; moveStarted = false; passage = null;
-        c.Log("course-ctc-plan", new { course, at = c.Now, selectedAt, start = c.Pose.Feet, goal, speed, returnToLower,
-            arrowHeading = c.Pose.Raw.ArrowDirection, arrowRate = c.Act.ArrowRate,
-            plan.Arrival, plan.Found, plan.Expanded, connectors = connectors.Length,
-            planningMs = Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            route = plan.Legs.Select(l => new { l.Edge.From, l.Edge.To, l.Departure, duration = l.Edge.Duration }).ToArray() });
     }
     private HashSet<int> RingGoals(PilotContext c)
     {

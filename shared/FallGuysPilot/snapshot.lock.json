@@ -1,461 +1,398 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "files": [
     {
-      "path": "Pilot/Actuator.cs",
-      "sha256": "cd3205f13e1e630e1d6edc32d46edc8b305db1aeee6f886d56153f9e9500c157"
+      "path": "Pilot/Actuator.cs"
     },
     {
-      "path": "Runtime/Mechanics/HitParadePhaseModel.cs",
-      "sha256": "320e797a0b1b9d8da3b2f13933988c9bf19ae2bde8e59b6e275b379f162e7f7e"
+      "path": "Runtime/Mechanics/GroundedShelter.cs"
     },
     {
-      "path": "Runtime/Mechanics/GroundedShelter.cs",
-      "sha256": "7da0ae17612c8d09f1bbc72d531f9188e09c6571607e7e0346391f4b9fcae8e1"
+      "path": "Runtime/Mechanics/CrystalProfiles.cs"
     },
     {
-      "path": "Runtime/Mechanics/CrystalProfiles.cs",
-      "sha256": "2fb725239be7467d48a77e6ca79c9e37e500233145f0304c13b880194b3e1188"
+      "path": "Runtime/Mechanics/CrownPhaseTracker.cs"
     },
     {
-      "path": "Runtime/Mechanics/CrownPhaseTracker.cs",
-      "sha256": "38d5adf0612a200a44f73e41861d3539dbfdc8ce7876b0fd3067346c3638a48c"
+      "path": "Runtime/Mechanics/CrownPhaseProfiles.cs"
     },
     {
-      "path": "Runtime/Mechanics/CrownPhaseProfiles.cs",
-      "sha256": "e0840c36858b7ece3289c3909a50936d2fa559abb8a7e941a0d6c54b1eae32eb"
+      "path": "Runtime/Data/ring-poses.json"
     },
     {
-      "path": "Runtime/Data/ring-poses.json",
-      "sha256": "1854963757c5b1b3ed3b1aa9f3cb3d2b74259a46fb11481bcc09d7cf3f4036d3"
+      "path": "Runtime/Data/recorded-mechanics.json"
     },
     {
-      "path": "Runtime/Data/recorded-mechanics.json",
-      "sha256": "c3444dea0aacadd764d4788fb11cc5bdffe74e6d2ef6431a77cda97ec4e3e03d"
+      "path": "Runtime/Data/knight-cycles.json"
     },
     {
-      "path": "Runtime/Data/knight-cycles.json",
-      "sha256": "a2ff4ad50086450d71de1376ae9a9da0dfc0383166004ebe396fc62ca0b24fd1"
+      "path": "Runtime/Data/hit-parade-phases.json"
     },
     {
-      "path": "Runtime/Data/hit-parade-phases.json",
-      "sha256": "4a08f48c330638d6169fc4a7b41eab37b4e304d44b84af5b186f462f04d4d51c"
+      "path": "Runtime/Data/hit-openings.json"
     },
     {
-      "path": "Runtime/Data/hit-openings.json",
-      "sha256": "2cb3707a3731f934de2a47b7d60f3c65d0a81ec31dfa81333a21a8d5462bf035"
+      "path": "Runtime/Data/crystal-profiles.json"
     },
     {
-      "path": "Runtime/Data/crystal-profiles.json",
-      "sha256": "9b2880ad33b567457a9c06c8bdefa0d22343552561cf19064324f918e521cb6f"
+      "path": "Runtime/Data/crown-phases.json"
     },
     {
-      "path": "Runtime/Mechanics/HitPendulumClockGroups.cs",
-      "sha256": "bf36406f58f4306350b4aaf9ee1b8099bec8f3b42afc149760bca05e812f4ad6"
+      "path": "Runtime/Windows.cs"
     },
     {
-      "path": "Runtime/Data/crown-phases.json",
-      "sha256": "973335029fcec7a4faca452eedbf9e218270dc1c5059005f3df33487c1ba246e"
+      "path": "Runtime/RingObservations.cs"
     },
     {
-      "path": "Runtime/RingObservations.cs",
-      "sha256": "4bf587feeb7390cbd07049506fdd3d10d1944fc8ae1af4f1550812cf5bfdbeee"
+      "path": "Runtime/Programs.cs"
     },
     {
-      "path": "Runtime/Programs.cs",
-      "sha256": "01fe4b2ffe9fa3c665a2688ed1036af33eae4887afaf19b073309e457deb6e21"
+      "path": "Runtime/MotionLaw.cs"
     },
     {
-      "path": "Runtime/MotionLaw.cs",
-      "sha256": "326928fcf288d0ebdda45f4e5747e90958049d4129d5a57ac1e7e1a30eb9e430"
+      "path": "Runtime/KnightObservations.cs"
     },
     {
-      "path": "Runtime/KnightObservations.cs",
-      "sha256": "c7a3f70b10627f4a0a170fec33f6ff7ae3cee5a36ebd361617ccea38451097d0"
+      "path": "Runtime/IceMotionLaw.cs"
     },
     {
-      "path": "Runtime/IceMotionLaw.cs",
-      "sha256": "cb2d60638501ae82f32b3582a8d68bc5c81c6715766ab486c622590eb0fad4ea"
+      "path": "Runtime/HitObservations.cs"
     },
     {
-      "path": "Runtime/HitObservations.cs",
-      "sha256": "6144e9c85c07781e4cb014f2df8da79124a127eb9d4a59df6750b6009a823821"
+      "path": "Runtime/GroundInputAuthority.cs"
     },
     {
-      "path": "Runtime/GroundInputAuthority.cs",
-      "sha256": "dee4e2507131eb5105c3bef29e9a60d5ac9489d5e7dd89036d8b6f5a572db229"
+      "path": "Runtime/FallGuys.Runtime.csproj"
     },
     {
-      "path": "Runtime/FallGuys.Runtime.csproj",
-      "sha256": "b934af82d928e7049490cca8ab23848644b341498439e66e4b9ac33acfddfff6"
+      "path": "Runtime/ExecutionOwner.cs"
     },
     {
-      "path": "Runtime/ExecutionOwner.cs",
-      "sha256": "b7710a71f3987abf588860c8d3be4aa766fcd25975c775e1bd5f05aee8e7fb9c"
+      "path": "Runtime/CrystalObservations.cs"
     },
     {
-      "path": "Runtime/CrystalObservations.cs",
-      "sha256": "ed0aa03ace79f7dc8032c5975c4f6584eb8f24a1585bb424ba20aeb404f0a5df"
+      "path": "Runtime/CrownTransportLaw.cs"
     },
     {
-      "path": "Runtime/CrownTransportLaw.cs",
-      "sha256": "ae4024e0287896b561b4d0b83dceb72845d68c9c0240750152f93e2b49bbe6f8"
+      "path": "Runtime/CourseRouter.cs"
     },
     {
-      "path": "Runtime/Windows.cs",
-      "sha256": "c821b1cbbbb518d4e64ebea75fab888eeb87ec671b4211d09dbb7bc8de7bc2d0"
+      "path": "Runtime/CourseObservations.cs"
     },
     {
-      "path": "Runtime/Mechanics/KnightBridgeSupport.cs",
-      "sha256": "b329a50259188616d88a5c6de68c0a5f3056a88ed3c093df94c3f1f2e6d935fd"
+      "path": "Runtime/AssetIO.cs"
     },
     {
-      "path": "Runtime/Mechanics/KnightRecordedCycle.cs",
-      "sha256": "07c7e98f674f68ea51b78d1e93e1ecde63469bea01fe8dec5b41a27b635f6c09"
+      "path": "Movement/LeaveDutyHelper.cs"
     },
     {
-      "path": "Runtime/Mechanics/MechanicBurstWindows.cs",
-      "sha256": "5f6fce95f14eb7c40a7c8a91e38a320123c2993c1b08091e44b6ce32f0d84414"
+      "path": "Movement/DirectJumpObservation.cs"
     },
     {
-      "path": "Assets/ring-ground.json.gz",
-      "sha256": "2e6b8b59580d6d67f691657b9090ee356b40ad1c152a05885cd4b476e909e7a8"
+      "path": "Movement/DirectJumpTrajectory.cs"
     },
     {
-      "path": "Assets/knight-routes.json.gz",
-      "sha256": "a7b4e54b329c56e74a709f85e67c0bae79edee7ab984aaa0849d61fbdd32d69a"
+      "path": "Runtime/Mechanics/HitParadePhaseModel.cs"
     },
     {
-      "path": "Assets/knight-hazards.json.gz",
-      "sha256": "2a49e4e045ee9fbb2cc741d390b2c23ed58ff581f38cf6cc0f005ce6709ff7c8"
+      "path": "Movement/DirectMovementCollision.cs"
     },
     {
-      "path": "Assets/knight-ground.json.gz",
-      "sha256": "8599511452b6643d8ff283cc7d856fd47fcb48226c698ec7c446a0a7259759cf"
+      "path": "Runtime/Mechanics/HitPendulumClockGroups.cs"
     },
     {
-      "path": "Assets/hit-water.bin.gz",
-      "sha256": "5797df5fe4b11d75a977b21551c4b103cc95f1f55b65195be4e203567290a768"
+      "path": "Runtime/Mechanics/KnightRecordedCycle.cs"
     },
     {
-      "path": "Assets/hit-opening-routes.json.gz",
-      "sha256": "861df4ec874cf3b366c2e444a65b4e1d75d29fd4449a41cef55a75cceeae5783"
+      "path": "Assets/ring-ground.json.gz"
     },
     {
-      "path": "Assets/hit-opening-ground.json.gz",
-      "sha256": "f242ac9ee3649e783f80ea7b40d39745a232332f1e049f05fce21d3df3c9431a"
+      "path": "Assets/knight-routes.json.gz"
     },
     {
-      "path": "Assets/hit-hazards.json.gz",
-      "sha256": "0b84a3e4c09317f272b0a46b0ff421407478edb8ffdf141e94ed802a7bdcb1aa"
+      "path": "Assets/knight-hazards.json.gz"
     },
     {
-      "path": "Assets/hit-ground.json.gz",
-      "sha256": "93880b14871b553962dc0510d49646e34743f6e36a45fe22c45577539df707eb"
+      "path": "Assets/knight-ground.json.gz"
     },
     {
-      "path": "Assets/crystal-routes.json.gz",
-      "sha256": "eb81f5a5c1c961fff00c06e5fa2d523b434567657992bdb66c9282356d0f75fa"
+      "path": "Assets/hit-water.bin.gz"
     },
     {
-      "path": "Assets/crystal-hazards.json.gz",
-      "sha256": "552765929db61290510295f55f4baeb568d6a14167bdb5b529dc94bccf8af8bb"
+      "path": "Assets/hit-steering.bin.gz"
     },
     {
-      "path": "Assets/crystal-ground.json.gz",
-      "sha256": "cf44fe795c60ce5279f8999f65ad636be97df1fdb4ffc31bd7816c42a4da7b70"
+      "path": "Assets/hit-opening-routes.json.gz"
     },
     {
-      "path": "Assets/crown-routes.json.gz",
-      "sha256": "5949afc57ea3a8432a932a5e193a86dd45e7b1d9b4781621a401564421ecf532"
+      "path": "Assets/hit-opening-ground.json.gz"
     },
     {
-      "path": "Assets/crown-hazards.json.gz",
-      "sha256": "a1af14fb2684c82addfad8ff3816261a69d6415f6e0cef4036edefa733325be2"
+      "path": "Assets/hit-hazards.json.gz"
     },
     {
-      "path": "Assets/crown-ground.json.gz",
-      "sha256": "1aa7f3ce6dfd8658367f6a359637716c67b51abe9bd48412a6ec71d6b0a543f0"
+      "path": "Assets/hit-ground.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/TemporalSupport.cs",
-      "sha256": "cba4f8f89d56e4f165bc69b5a86a98b2aefd173c6de7132cb6c21c7e33fd28b6"
+      "path": "Assets/crystal-routes.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/TemporalHazard.cs",
-      "sha256": "7fcb8e83e0f6ffeb7cd95a7c295dbb707f2bb2aeff8ef764458ebfa38580c36a"
+      "path": "Assets/crystal-hazards.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/RingProfiles.cs",
-      "sha256": "cbd0f3f315a28268c08965cbdcefe918f017a804875c4994ce0e85c5097b8e20"
+      "path": "Assets/crystal-ground.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/PeriodicReceiptClock.cs",
-      "sha256": "9033a97c3bca4140660e5b89b66e89373488375bb2ebc015ac9fceb1f781b317"
+      "path": "Assets/crown-routes.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/MechanicTimeline.cs",
-      "sha256": "943a6fe18ff17a92a18f8046894d46805fd0184090c6ddedb24aa1da55b0d936"
+      "path": "Assets/crown-hazards.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/MechanicPhaseCycle.cs",
-      "sha256": "5358e236950cecc03bc4e994af4cd363862e04b6a2203bd2c4527be373bfbaca"
+      "path": "Assets/crown-ground.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/MechanicObservation.cs",
-      "sha256": "4b024bae226f56b3c26c1c1ec791558572e97508f76317c426bed6fa654a30ca"
+      "path": "Assets/crown-boost60-routes.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/MechanicForecaster.cs",
-      "sha256": "1376d1562fb251dcbbb6649dc190345b8d5e9e4bbcdcec21b5fd9109b62f7999"
+      "path": "Assets/crown-boost-routes.json.gz"
     },
     {
-      "path": "Runtime/Mechanics/MechanicFootprint.cs",
-      "sha256": "67ec3d660fb4436eecf8948be1775bef7c3f1c331ce6a88b8bb76f5dc7ddaa67"
+      "path": "Runtime/Mechanics/TemporalSupport.cs"
     },
     {
-      "path": "Runtime/Mechanics/MechanicCatalog.cs",
-      "sha256": "f108aba2bea113bf8f9617c0dce6e8a5a329431ae48d59cd4ebfb3e47c7059e1"
+      "path": "Runtime/Mechanics/TemporalHazard.cs"
     },
     {
-      "path": "Runtime/CourseRouter.cs",
-      "sha256": "12de468a9c7985ad18f340e4567859904efc6458b07f0a955a6fd53bd2caa282"
+      "path": "Runtime/Mechanics/RingProfiles.cs"
     },
     {
-      "path": "Runtime/CourseObservations.cs",
-      "sha256": "1ff391253c9bc4af8b723d42a4752d6baaa2e2e20c63c7b6e02c0ac02b58e1b9"
+      "path": "Runtime/Mechanics/PeriodicReceiptClock.cs"
     },
     {
-      "path": "Runtime/AssetIO.cs",
-      "sha256": "8eb8ffffc34e19419be4eace2880a6f2c69cbc23aa916b9f3e28ebd8e3f87e48"
+      "path": "Runtime/Mechanics/MechanicTimeline.cs"
     },
     {
-      "path": "Movement/LeaveDutyHelper.cs",
-      "sha256": "3d692b33a155fe5ef3d16dcb3793190fd5319b325e4f473708c3198721547a46"
+      "path": "Runtime/Mechanics/MechanicPhaseCycle.cs"
     },
     {
-      "path": "Pilot/Courses/HitForcedMarch.cs",
-      "sha256": "a7a84031963377ce9374a8edc80a2b24474e0057d1e756ef14dbe8b7268a76b8"
+      "path": "Runtime/Mechanics/MechanicObservation.cs"
     },
     {
-      "path": "Pilot/Courses/HitCourseGeometry.cs",
-      "sha256": "6627923ba32e80d1d25735db6944c93e73668c4bc7cc2ec9b1fddb4acce5cc4f"
+      "path": "Runtime/Mechanics/MechanicForecaster.cs"
     },
     {
-      "path": "Pilot/Courses/HitCourse.cs",
-      "sha256": "2279ed82d296269926cdd65d865dac3890d1d0d0deea16eb984862b3d3174338"
+      "path": "Runtime/Mechanics/MechanicFootprint.cs"
     },
     {
-      "path": "Pilot/Courses/HitColumnStep.cs",
-      "sha256": "6fa9031dfecb7f91671aee471a458d54e94f86655aad835cb133a592b7dc567b"
+      "path": "Runtime/Mechanics/MechanicCatalog.cs"
     },
     {
-      "path": "Pilot/Courses/CourseScripts.cs",
-      "sha256": "44f0500e7d9ac1f272b6f19300f67989baf130043a25a76edf993e29ef55e704"
+      "path": "Runtime/Mechanics/MechanicBurstWindows.cs"
     },
     {
-      "path": "Pilot/Courses/CourseRouteStep.Sections.cs",
-      "sha256": "7b00615d28fba4909469e2ead89c9e8d86c750b59d84cf8b99cc08021628ca6d"
+      "path": "Runtime/Mechanics/KnightBridgeSupport.cs"
     },
     {
-      "path": "Pilot/Courses/CourseRouteStep.Clock.cs",
-      "sha256": "b4bc88f78f523985cc54dc1407bb372a7ba8139c13ce1b24d38a033c0daf8503"
+      "path": "Assets/ring-hazards.json.gz"
     },
     {
-      "path": "Pilot/Courses/CourseRouteStep.Background.cs",
-      "sha256": "6c6ebdb863f175c26a4131779926cf7d5c13f00f73f2ad5c360fe10aa9d8d6da"
+      "path": "Movement/DirectMovementController.cs"
     },
     {
-      "path": "Pilot/Courses/CourseRoutePlanner.cs",
-      "sha256": "ccd110d5cba34990d5b28b0641afb9ec257a03c7dd9504f7edc3bb0b1812c813"
+      "path": "Native/CourseScene.cs"
     },
     {
-      "path": "Pilot/Courses/CourseHazards.cs",
-      "sha256": "42261b29f764d6d8e51023a5e758c15bf516636e56b0a034fbb31f614b03e46a"
+      "path": "Pilot/Courses/HitCourseGeometry.cs"
     },
     {
-      "path": "Pilot/Script.cs",
-      "sha256": "0cd940265ca2f5f4fc85b0ed7ced30d849f0eb625ca6fc4308c04c6785151ffe"
+      "path": "Pilot/Courses/HitCourse.cs"
     },
     {
-      "path": "Pilot/Planner.cs",
-      "sha256": "cc06694b3e5ab5f43fb512447e2a902cb6877d5867eca2248eb6100cd90eb5fb"
+      "path": "Pilot/Courses/HitColumnStep.cs"
     },
     {
-      "path": "Pilot/PilotPose.cs",
-      "sha256": "7ca49d0462d41f8de91b1f0b8141337624898922ff308d758a7554c16a4c9949"
+      "path": "Pilot/Courses/CourseScripts.cs"
     },
     {
-      "path": "Pilot/PilotObservation.cs",
-      "sha256": "690d4b5dc54953142a3146442abdfc7c572dbba75b1891d42807572043f635f1"
+      "path": "Pilot/Courses/CourseRouteStep.Sections.cs"
     },
     {
-      "path": "Pilot/PilotCollisionCapture.cs",
-      "sha256": "1148ef54445dbafd8e68352dea9b1ee7d34493bbdacb47969704e9720d6c051c"
+      "path": "Pilot/Courses/CourseRouteStep.Ice.cs"
     },
     {
-      "path": "Pilot/Hazards.cs",
-      "sha256": "958f4a3658b73e01b2805d59e16ecefb72ee2657bf5f30fa3bde0b286f6b0104"
+      "path": "Pilot/Courses/CourseRouteStep.Clock.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.WaterOverlay.cs",
-      "sha256": "43cc81246974dc81d65eee2be7b4c014fadd9461d6d6f5373796302b1340d3ae"
+      "path": "Pilot/Courses/CourseRouteStep.Background.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.WaterDebug.cs",
-      "sha256": "e411e7841fad8c4dc2858e09759343ab182ef7fcab55972806847e5ee59cfd0e"
+      "path": "Pilot/Courses/CourseRouteStep.Arrows.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.Sources.cs",
-      "sha256": "7e163b779ca2bd5b04699e844109d8544df73e9f715f81d7c61b4e40d68e9366"
+      "path": "Pilot/Courses/CourseRoutePlanner.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.RouteOverlay.cs",
-      "sha256": "19cbff11850a450bbe27ab349e8c8bf024ff20cbbe36d8b274f68b6e2eaeb9ca"
+      "path": "Pilot/Courses/CourseHazards.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.Observation.cs",
-      "sha256": "4755e70ff4720dad3854fb55db4ab23d1ace9a14226c34b15ff09488d1c0428f"
+      "path": "Pilot/WalkHandoffCheck.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.HazardOverlay.cs",
-      "sha256": "bcccf69ecd39294125bfc444a45f8e334f6b9464f06afe680baade36b9847001"
+      "path": "Pilot/SharedRouteProgress.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.Cycle.cs",
-      "sha256": "44a002a489bd54c709a81ce449312a266576d92628f9e2da38737b7c4e05022f"
+      "path": "Pilot/Script.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.cs",
-      "sha256": "285687d848c9ee13dca1faf58eace6d46fdc50fd1608ab9a729be278722c7615"
+      "path": "Pilot/Planner.cs"
     },
     {
-      "path": "Pilot/FallGuysPilot.ActiveRouteOverlay.cs",
-      "sha256": "99e6fb96adfdd1775f0a8cf33e155ff252e97191eeaebbbe757928a96bd48ae2"
+      "path": "Pilot/PilotPose.cs"
     },
     {
-      "path": "Pilot/Courses/HitGround.cs",
-      "sha256": "e1e5e95f2d2033b9f678c7e08dfc49db173322adbcff71414f9b88806154f0ee"
+      "path": "Pilot/PilotObservation.cs"
     },
     {
-      "path": "Assets/ring-hazards.json.gz",
-      "sha256": "6e6879048f92b2ad6f68410be820cc46ea1bc0c5127f9057fd1e69d6d5d826c9"
+      "path": "Pilot/PilotCollisionCapture.cs"
     },
     {
-      "path": "Pilot/Courses/HitOpeningStep.cs",
-      "sha256": "00a8d66023efddeae1a945b7af4b638cec29e3098f025cfd8b6f19ef37e2c794"
+      "path": "Pilot/Hazards.cs"
     },
     {
-      "path": "Pilot/Courses/HitTimedRoutes.cs",
-      "sha256": "9413ecfa270e30dc9cabdf33392be9fc30859b1c66a62230ccdb6b7d806c3e60"
+      "path": "Pilot/FallGuysPilot.WaterOverlay.cs"
     },
     {
-      "path": "Movement/DirectJumpObservation.cs",
-      "sha256": "73322b95b4d97240b334346bb7530bf68582f8ab1a382dcf0bea43e07fb395b9"
+      "path": "Pilot/FallGuysPilot.WaterDebug.cs"
     },
     {
-      "path": "Movement/DirectJumpTrajectory.cs",
-      "sha256": "54df94bcb8b2bca1d412699559bd216d285d8bbc6d7d437673d6df62703c55d6"
+      "path": "Pilot/FallGuysPilot.Sources.cs"
     },
     {
-      "path": "Movement/DirectMovementCollision.cs",
-      "sha256": "5e0415d5577ad0f303916a72667d4ce0714cb2222f6ff577499a5bbeebe1657b"
+      "path": "Pilot/FallGuysPilot.RouteOverlay.cs"
     },
     {
-      "path": "Movement/DirectMovementController.cs",
-      "sha256": "91df477afe4baba4e449ba8907bcdb84ed267c98abcfc5f491823be529ed3926"
+      "path": "Pilot/FallGuysPilot.RouteDrawing.cs"
     },
     {
-      "path": "Native/SessionRecorder.cs",
-      "sha256": "ef9d46d5a024d9c05789a12d039cbf4d4d4b15281eda4144a1397568c1bb9484"
+      "path": "Pilot/FallGuysPilot.Observation.cs"
     },
     {
-      "path": "Native/CourseScene.cs",
-      "sha256": "e5efc977591f704cdf55f75e98ff8fe7245dda6da995c9b544d5f66bc52c423d"
+      "path": "Pilot/FallGuysPilot.HazardOverlay.cs"
     },
     {
-      "path": "Native/PacketObservations.cs",
-      "sha256": "d31a4da47006995c33c8c1cb7198c4f3beb6b30b389d88e9d3a44a14349e7afa"
+      "path": "Pilot/FallGuysPilot.Cycle.cs"
     },
     {
-      "path": "Native/NativeControlCallback.cs",
-      "sha256": "c694dd05b2aed21937d49883bf3d5a301f2b002c42965d0bb693afcae6dda38d"
+      "path": "Pilot/FallGuysPilot.cs"
     },
     {
-      "path": "Native/NativeJumpLaunch.cs",
-      "sha256": "3e5213c5ec28aec02fddf0475e1ef146610c618a47fc3fc6e6582a22661d4f23"
+      "path": "Pilot/FallGuysPilot.ActiveRouteOverlay.cs"
     },
     {
-      "path": "Native/NativeCrownTransport.cs",
-      "sha256": "4b72d0efac23cf6c152b0da144ba49f5e380af9ca4570514e2ac18ebffda11af"
+      "path": "Pilot/Courses/HitForcedMarch.cs"
     },
     {
-      "path": "Native/NativeJumpMotion.cs",
-      "sha256": "0b7cecb7d1e6d27fb3b065cb50b6d618fc7b881e575a8883721ac6fd80ab8c01"
+      "path": "Native/SessionRecorder.cs"
     },
     {
-      "path": "Native/NativeStateReader.cs",
-      "sha256": "b611c2ad5e20eddbcc3133c00944a2e8eb0559994b3ec8af85235cba5a80bf8b"
+      "path": "Pilot/Courses/HitGround.cs"
     },
     {
-      "path": "Pilot/Water/WaterTerrain.cs",
-      "sha256": "c2f25257786039ed7d1ac338194a60a757fba18f282b110c5c43a5fb24bd0a44"
+      "path": "Pilot/Courses/HitSteeringRoutes.cs"
     },
     {
-      "path": "Pilot/Water/WaterSession.cs",
-      "sha256": "e73961b64cfe5a41d0f807dc6b8206a7a85c38804b0b35b2637ae0111f13a295"
+      "path": "Native/PacketObservations.cs"
     },
     {
-      "path": "Pilot/Water/WaterRoutes.cs",
-      "sha256": "116a4253082a50f9f6389dabee8bd4be608560d21ee12ec5356df1e4091eca1e"
+      "path": "Native/NativeControlCallback.cs"
     },
     {
-      "path": "Pilot/Courses/SectionRoutePlanner.cs",
-      "sha256": "b1221ef63bb86f38e07b956a831fa45ec37967ecd19397d52357be4a227d45ec"
+      "path": "Native/NativeJumpLaunch.cs"
     },
     {
-      "path": "Pilot/Courses/RoutePlanningTimes.cs",
-      "sha256": "1c5879fd12ff02869235431ce935760a8884ed439332a0067be066850efc98f5"
+      "path": "Native/NativeCrownTransport.cs"
     },
     {
-      "path": "Pilot/Courses/RouteContinuation.cs",
-      "sha256": "52b395dfacc134f55feeea2bd20dbd47953ae60ed922fa077de2703141ab3d84"
+      "path": "Native/NativeJumpMotion.cs"
     },
     {
-      "path": "Pilot/Courses/RingGoalSelection.cs",
-      "sha256": "a607e69cd3e148350e4cbcbca24cd27c5c2c067ab337708e1418a7031907b0ea"
+      "path": "Native/NativeStateReader.cs"
     },
     {
-      "path": "Pilot/Courses/PilotCourseGeometry.cs",
-      "sha256": "c88c20fc701bb9f253d94907d1c5d5aa7b22a902b35558e7b818963ab94374ab"
+      "path": "Pilot/Water/WaterTerrain.cs"
     },
     {
-      "path": "Pilot/Courses/PilotCollisionMesh.cs",
-      "sha256": "3c39aa8e3b0785c8462ec6a58f83054d13ca580a56b002e61d3782571ca613e3"
+      "path": "Pilot/Water/WaterSession.cs"
     },
     {
-      "path": "Pilot/Courses/OtherCourses.cs",
-      "sha256": "45b1664df71dc0b32936eae0548bece237ba0c6299ec56cf19878338a5ebd5c5"
+      "path": "Pilot/Water/WaterRoutes.cs"
     },
     {
-      "path": "Pilot/Courses/HitWetStep.cs",
-      "sha256": "677911859d91f50912c795f95cbb24ab342a3b964d73c4f872ff06bbb3af257f"
+      "path": "Pilot/Courses/SectionRoutePlanner.cs"
     },
     {
-      "path": "Pilot/Courses/HitWaterRouteStep.cs",
-      "sha256": "7819b4edce2b2e9cb65e471f901e858d2f2f94293e86f7cf81651a3734f8a94a"
+      "path": "Pilot/Courses/RouteSchedule.cs"
     },
     {
-      "path": "Pilot/Courses/HitTimedRoutes.Timing.cs",
-      "sha256": "485fda8d0c6f110f42b277971304db7c264d7fdd546d9ed06fc85e0246477ea0"
+      "path": "Pilot/Courses/RouteProjection.cs"
     },
     {
-      "path": "Pilot/Courses/HitSteeringStep.cs",
-      "sha256": "df54bab7bc18ba5d166ea819aefe9282a829921d6ce7ffbbb72e1d8795de00b7"
+      "path": "Pilot/Courses/RoutePlanningTimes.cs"
     },
     {
-      "path": "Assets/ring-routes.json.gz",
-      "sha256": "750bbb8d3e46c393c695396588f96f42026810b558ccdd5e4b0a5198581b45f6"
+      "path": "Pilot/Courses/RouteExecution.cs"
+    },
+    {
+      "path": "Pilot/Courses/RouteContinuation.cs"
+    },
+    {
+      "path": "Pilot/Courses/RingGoalSelection.cs"
+    },
+    {
+      "path": "Pilot/Courses/PilotCourseGeometry.cs"
+    },
+    {
+      "path": "Pilot/Courses/PilotCollisionMesh.cs"
+    },
+    {
+      "path": "Pilot/Courses/OtherCourses.cs"
+    },
+    {
+      "path": "Pilot/Courses/KnightIcePlanner.Geometry.cs"
+    },
+    {
+      "path": "Pilot/Courses/KnightIcePlanner.cs"
+    },
+    {
+      "path": "Pilot/Courses/KnightCourseGeometry.cs"
+    },
+    {
+      "path": "Pilot/Courses/KnightColumnPlanner.cs"
+    },
+    {
+      "path": "Pilot/Courses/KnightArrowPolicy.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitWetStep.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitWaterRouteStep.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitTimedRoutes.Timing.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitTimedRoutes.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitSteeringStep.cs"
+    },
+    {
+      "path": "Pilot/Courses/HitOpeningStep.cs"
+    },
+    {
+      "path": "Assets/ring-routes.json.gz"
     }
   ]
 }

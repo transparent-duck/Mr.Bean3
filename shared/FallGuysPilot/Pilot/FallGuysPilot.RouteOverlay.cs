@@ -13,7 +13,7 @@ namespace MrBean.Modules.FallGuysPilot;
 
 public sealed partial class FallGuysPilot
 {
-    private readonly record struct RouteDrawing(int A, int B, int From, int To, bool Jump, bool Recorded, bool Script);
+    private readonly record struct RouteDrawing(int A, int B, bool Jump, bool Recorded, bool Script);
     private PilotCourseGeometry? routeGraph;
     private Vector3[] routeWorld = [];
     private Vector2[] routeScreen = [];
@@ -50,30 +50,22 @@ public sealed partial class FallGuysPilot
     private void LoadRouteGraph(string map, string? recording = null, int planNumber = 1, string section = "all")
     {
         Dictionary<int, string>? labels = null;
-        var data = map == "hit" ? HitInspectionGraph(section, out labels) : PilotCourseGeometry.Load(map);
-        var points = new List<Vector3>();
-        var indices = new Dictionary<Vector3, int>();
-        var lines = new List<RouteDrawing>();
+        var data = map == "hit" ? HitInspectionGraph(section, out labels) : PilotCourseGeometry.Load(map,
+            course == MrBean.FallGuys.CourseId.Crown ? activeCrownStairBoost : configuration.FallGuysCrownStairBoost,
+            engine?.Current is CourseRouteStep route ? route.CrownFrameRate : 30);
+        var paths = new List<RouteDrawingPath>();
         var marked = new bool[data.Nodes.Length];
-        int Point(Vector3 p)
-        {
-            if (indices.TryGetValue(p, out int index)) return index;
-            index = points.Count; indices.Add(p, index); points.Add(p); return index;
-        }
         void Segment(Vector3 a, Vector3 b, int from, int to, bool jump, bool recorded, bool script = false)
         {
-            if (a != b) lines.Add(new(Point(a), Point(b), from, to, jump, recorded, script));
+            if (a != b) paths.Add(new([a, b], from, to, jump, recorded, script, false));
         }
         void Edge(PilotCourseGeometry.Route edge, bool recorded)
         {
             foreach (var move in edge.Moves)
-                for (int i = 1; i < move.Path.Length; ++i)
-                    Segment(move.Path[i - 1], move.Path[i], edge.From, edge.To, move.Kind == "jump", recorded, move.Kind == "script");
+                if (move.Path.Length > 1)
+                    paths.Add(new(move.Path, edge.From, edge.To, move.Kind == "jump", recorded,
+                        move.Kind == "script", move.Kind == "steering"));
         }
-        // Keep the first N indices identical to graph node IDs, including any
-        // coincident vertices. Intermediate motion points are cached afterward.
-        foreach (var node in data.Nodes)
-        { indices.TryAdd(node.Feet, points.Count); points.Add(node.Feet); }
         foreach (var edge in data.Edges) Edge(edge, false);
         string description = $"{map}/{(map == "hit" ? section : "all")}：{data.Nodes.Length} 節點，{data.Edges.Length} 有向連接。";
         if (recording != null)
@@ -117,10 +109,9 @@ public sealed partial class FallGuysPilot
             if (!loaded) throw new ArgumentException("The requested plan is not in this recording.");
         }
         // Publish only after the complete inspection data loaded successfully.
-        routeGraph = data; routeWorld = points.Select(p => p + new Vector3(0, .12f, 0)).ToArray();
-        routeScreen = new Vector2[points.Count]; routeVisible = new bool[points.Count];
+        routeGraph = data; routePaths = paths.ToArray();
         routeNodeLabels = Enumerable.Range(0, data.Nodes.Length).Select(i => labels?.GetValueOrDefault(i) ?? i.ToString()).ToArray();
-        routeMarkedNodes = marked; routeLines = lines.ToArray(); routeDescription = description;
+        routeMarkedNodes = marked; routeDescription = description;
         routeBoundaryNodes = new byte[data.Nodes.Length];
         if (map == "hit")
         {
@@ -134,6 +125,7 @@ public sealed partial class FallGuysPilot
             for (int i = 0; i < data.Nodes.Length; ++i) routeBoundaryNodes[i] = boundaries.GetValueOrDefault(data.Nodes[i].Feet);
         }
         routeFocus = -1; routeOverlay = true;
+        CacheRouteDrawing();
         routeMap = Array.IndexOf(RouteMaps, map);
     }
 
@@ -160,6 +152,7 @@ public sealed partial class FallGuysPilot
         {
             if (routeGraph == null) throw new ArgumentException("Enable the route overlay in a course first.");
             routeFocus = Math.Clamp(int.Parse(args.ElementAtOrDefault(1) ?? "-1"), -1, routeGraph!.Nodes.Length - 1);
+            CacheRouteDrawing();
             routeOverlay = true;
         }
         else if (option != "status") throw new ArgumentException("Use fallguys graph hit [section], knight/ring/crystal/crown [recording.jsonl] [plan], node <id>, off or status.");
@@ -176,6 +169,7 @@ public sealed partial class FallGuysPilot
         if (active) ImGui.TextWrapped("綠：目前路線；橙：跳躍；黃圈：等待點。圈旁顯示預計停留秒數，抵達後顯示剩餘秒數。計算次數包含預先計算與調時；路線編號在產生新路線或調整時間時增加。");
         if (ImGui.Checkbox("顯示路網", ref routeOverlay) && routeOverlay) routeMap = -1;
         if (routeOverlay) ImGui.TextWrapped("自動顯示目前地圖。灰：步行；橙：跳躍；綠：載入的紀錄路線。");
+        if (routeOverlay && routeMap == 0) ImGui.TextWrapped("角速度區概覽合併同起終點的朝向候選；用 graph node <編號> 檢查該節點全部候選。");
         if (routeOverlay && routeMap == 0) ImGui.TextWrapped("青圈：入口候選；紫圈：出口候選；雙圈：兩者重合。");
     }
 
@@ -184,21 +178,26 @@ public sealed partial class FallGuysPilot
         routeProjected = 0;
         if (!routeOverlay || Service.ClientState.TerritoryType != TerritoryDuty ||
             Service.LocalPlayer is not { } player) return;
-        if (CourseScene.Detect(player.Position) is not { } current) return;
+        var feet = player.Position;
+        if (CourseScene.Detect(feet) is not { } current) return;
         if (routeMap != (int)current) LoadRouteGraph(RouteMaps[(int)current]);
         if (routeGraph == null) return;
-        for (int i = 0; i < routeWorld.Length; ++i)
-            routeVisible[i] = Vector3.DistanceSquared(player.Position, routeWorld[i]) <= RouteDistance * RouteDistance &&
-                Service.GameGui.WorldToScreen(routeWorld[i], out routeScreen[i], out _);
+        CollectRouteDrawing(feet);
+        var viewport = ImGui.GetMainViewport();
+        var screenMin = viewport.Pos - new Vector2(10);
+        var screenMax = viewport.Pos + viewport.Size + new Vector2(10);
         var draw = ImGui.GetBackgroundDrawList();
-        // Static geometry is prepared on explicit load only. Project each unique
-        // point once; draw the recorded route after the underlying network.
-        foreach (var line in routeLines)
+        // The nearby list is cached until the player's grid cell changes.
+        // Recorded lines follow the overview even when they occupy other cells.
+        foreach (int id in routeNearbyLines)
         {
-            if (!line.Recorded && routeFocus >= 0 && line.From != routeFocus && line.To != routeFocus) continue;
-            if (!routeVisible[line.A] || !routeVisible[line.B]) continue;
+            var line = routeLines[id];
+            if (!ProjectRoutePoint(line.A, feet) || !ProjectRoutePoint(line.B, feet)) continue;
             uint color = line.Recorded ? 0xff80ef80u : line.Jump ? 0xff40bfffu : line.Script ? 0xffffb050u : 0x609c9c9cu;
             var a = routeScreen[line.A]; var b = routeScreen[line.B];
+            // Keep segments crossing the viewport even if both ends are outside.
+            if (MathF.Max(a.X, b.X) < screenMin.X || MathF.Min(a.X, b.X) > screenMax.X ||
+                MathF.Max(a.Y, b.Y) < screenMin.Y || MathF.Min(a.Y, b.Y) > screenMax.Y) continue;
             draw.AddLine(a, b, color, line.Recorded ? 4 : line.Jump || line.Script ? 2.5f : 1);
             ++routeProjected;
             if (!(line.Jump || line.Recorded)) continue;
@@ -209,17 +208,19 @@ public sealed partial class FallGuysPilot
             draw.AddTriangleFilled(middle + direction * 6, middle - direction * 4 + side * 4,
                 middle - direction * 4 - side * 4, color);
         }
-        for (int i = 0; i < routeGraph.Nodes.Length; ++i)
+        foreach (int i in routeNearbyNodes)
         {
-            if (!routeVisible[i] || routeNodeLabels[i].Length == 0) continue;
             bool selected = i == routeFocus, recorded = routeMarkedNodes[i];
             byte boundary = routeBoundaryNodes[i];
             if (routeFocus >= 0 && !selected && !recorded && boundary == 0) continue;
+            if (routeNodeLabels[i].Length == 0 || !ProjectRoutePoint(i, feet)) continue;
+            var screen = routeScreen[i];
+            if (screen.X < screenMin.X || screen.X > screenMax.X || screen.Y < screenMin.Y || screen.Y > screenMax.Y) continue;
             uint color = selected ? 0xffffffffu : recorded ? 0xff80ef80u : 0xffb0b0b0u;
             draw.AddCircleFilled(routeScreen[i], selected ? 5 : recorded ? 4 : 2, color);
             if ((boundary & 1) != 0) draw.AddCircle(routeScreen[i], 6, 0xffffff40u, 0, 2);
             if ((boundary & 2) != 0) draw.AddCircle(routeScreen[i], boundary == 3 ? 9 : 6, 0xffff60dfu, 0, 2);
-            if (!selected && !recorded && Vector3.DistanceSquared(player.Position, routeWorld[i]) > 8 * 8) continue;
+            if (!selected && !recorded && Vector3.DistanceSquared(feet, routeWorld[i]) > 8 * 8) continue;
             var at = routeScreen[i] + new Vector2(5, -7); var size = ImGui.CalcTextSize(routeNodeLabels[i]);
             draw.AddRectFilled(at - new Vector2(2, 1), at + size + new Vector2(2, 1), 0xc0202020);
             draw.AddText(at, color, routeNodeLabels[i]);

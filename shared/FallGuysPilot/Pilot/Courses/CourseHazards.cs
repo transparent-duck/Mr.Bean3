@@ -21,8 +21,10 @@ internal sealed class CourseHazards
         public float Length { get; set; }
         public float ForwardMin { get; set; }
         public float[] Endpoint { get; set; } = [];
+        public float Pad { get; set; }
         public HazardField.Station Station(HazardField field, uint action, double lead = .15, double tail = .10, string note = "")
-            => field.StationFor(new(action, Enum.Parse<HazardShape>(Kind), Size, Length, Lead: lead, Tail: tail, ForwardMin: ForwardMin, Note: note),
+            => field.StationFor(new(action, Enum.Parse<HazardShape>(Kind), Size, Length, Lead: lead, Tail: tail,
+                ForwardMin: ForwardMin, Note: note, Pad: Pad),
                 new(Origin[0], Origin[1]), Rotation, new(Endpoint[0], Endpoint[1]));
     }
     public sealed class Body
@@ -46,6 +48,7 @@ internal sealed class CourseHazards
         public double Tail { get; set; } = .10;
         public bool Permanent { get; set; }
         public double Epoch = double.NaN;
+        internal double BodyEpoch = double.NaN;
         internal double EpochError;
         public HazardField.Station[] Stations = [], BodyStations = [];
         internal double[] ChoiceEpochs = [];
@@ -108,7 +111,7 @@ internal sealed class CourseHazards
     public static HazardSpec[] Specs(CourseId course) => course switch
     {
         CourseId.Knight => [new(34716, HazardShape.Rect, 1, 1.5f, Lead: .35, Tail: .35, ForwardMin: -1.5f),
-            new(34717, HazardShape.Circle, 3, CastWarning: true), new(34718, HazardShape.Rect, 5, 4)],
+            new(34717, HazardShape.Circle, 3, CastWarning: true), new(34718, HazardShape.Rect, 5, 2, ForwardMin: -2)],
         // Half-disc effects report caster facing; casts report the left/right footprint direction.
         CourseId.Ring => [new(34797, HazardShape.HalfDisc, 8, CastWarning: true, EffectRotationOffset: MathF.PI / 2),
             new(34798, HazardShape.HalfDisc, 8, CastWarning: true, EffectRotationOffset: -MathF.PI / 2),
@@ -288,6 +291,12 @@ internal sealed class CourseHazards
             }
         }
         if (selected == null) return false;
+        // Knight column occupancy was measured relative to cast START. Its
+        // impact clock includes cast duration and receipt delay; effects must
+        // not move the independent body clock forward by that delay.
+        if (course == CourseId.Knight && action == 34717 && observation is MechanicCastObservation bodyCast)
+            selected.BodyEpoch = bodyCast.Seconds - selected.Offsets[phase];
+        foreach (var station in selected.Stations) station.ObservedRevision = field.Revision + 1;
         if (selected.UsesChoices)
         {
             bool changed = false;
@@ -393,7 +402,10 @@ internal sealed class CourseHazards
                 {
                     var span = group.Bodies[b].Windows[phase];
                     if (span.Length < 2) continue;
-                    Repeat(group.BodyStations[b], anchor + span[0], anchor + span[1], group.Period, now, end, group.PeriodError);
+                    double bodyAnchor = course == CourseId.Knight && group.Action == 34717
+                        ? group.BodyEpoch + group.Offsets[phase] : anchor;
+                    if (double.IsFinite(bodyAnchor))
+                        Repeat(group.BodyStations[b], bodyAnchor + span[0], bodyAnchor + span[1], group.Period, now, end, group.PeriodError);
                 }
             }
         }

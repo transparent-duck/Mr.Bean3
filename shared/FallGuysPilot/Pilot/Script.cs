@@ -12,6 +12,7 @@ internal sealed class PilotContext
     public required HazardField Hazards { get; init; }
     public required Action<string, object> Log { get; init; }
     public double ReleasedAt = double.NaN;
+    public double ExpectedReleaseAt = double.NaN;
     public double LastHitAt;
     public double LastWindHitAt = double.NegativeInfinity;
     public double LastDeliveryAt = double.NegativeInfinity;
@@ -39,6 +40,7 @@ internal abstract class Step
     /// <summary>Step to continue with after completion; null = the next step in the list.</summary>
     public string? Next { get; init; }
     public virtual void Enter(PilotContext c) { }
+    public virtual void PrepareStart(PilotContext c) { }
     /// <summary>Observe native movement ownership before the engine holds input.</summary>
     public virtual bool ObserveMotion(PilotContext c) => false;
     public abstract bool Tick(PilotContext c);
@@ -214,6 +216,8 @@ internal sealed class PilotEngine : IDisposable
             MoveTo(c, next < 0 ? Index + 1 : next, "done");
         }
     }
+
+    public void PrepareStart(PilotContext c) => Current?.PrepareStart(c);
 
     public void MoveTo(PilotContext c, int index, string reason)
     {

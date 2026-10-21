@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Compression;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
 
 namespace MrBean.Modules.FallGuysPilot.Courses;
 
@@ -24,7 +27,8 @@ internal sealed class PilotCourseGeometry
     {
         public string Kind { get; set; } = "walk";
         public float[][] Points { get; set; } = [];
-        internal HitTimedRoutes.Point[]? TimedPath;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public HitTimedRoutes.Point[]? TimedPath { get; set; }
         internal float? Facing;
         private Vector3[]? path;
         public Vector3[] Path => path ??= Points.Select(p => new Vector3(p[0], p[1], p[2])).ToArray();
@@ -44,27 +48,69 @@ internal sealed class PilotCourseGeometry
     internal Section[] Sections = [];
     public HitGround Ground = null!;
     private bool knight;
+    internal bool IsKnight => knight;
+    private bool crownBoost;
+    internal bool CrownStairBoost => crownBoost;
+    internal const float CrownBoostSpeed = 6.6f;
+    internal const float CrownBoostStartZ = 150;
+    internal static bool CrownBoostRegion(Vector3 feet)
+        => feet.Z is >= 122 and <= CrownBoostStartZ && feet.Y is >= 32 and < 40;
     internal Func<PilotPose, float, IEnumerable<HitTimedRoutes.Edge>>? CustomConnectors;
     internal Func<Vector2, float?>? CustomHeight;
     internal Func<Vector3, Vector2, bool>? CustomClear;
     internal float? Height(Vector2 point) => CustomHeight != null ? CustomHeight(point) : Ground.At(point);
     internal bool Clear(Vector3 from, Vector2 to) => CustomClear != null ? CustomClear(from, to) : Ground.ClearFromGrounded(from, to);
     private readonly Dictionary<(float, bool), HitTimedRoutes> graphs = [];
+    private static readonly ConcurrentDictionary<(string Name, bool Boost, int FrameRate), Lazy<PilotCourseGeometry>>
+        Prepared = new();
 
     public static T Read<T>(string name)
     {
         using var stream = typeof(PilotCourseGeometry).Assembly.GetManifestResourceStream($"MrBean.Pilot.{name}")!;
         using var gzip = new GZipStream(stream, CompressionMode.Decompress);
-        return JsonSerializer.Deserialize<T>(gzip)!;
+        return JsonSerializer.Deserialize<T>(gzip, new JsonSerializerOptions { IncludeFields = true })!;
     }
-    public static PilotCourseGeometry Load(string name)
+    internal static int CrownFrameRate(double seconds)
+        => seconds <= 1d / 45 ? 60 : 30;
+    public static PilotCourseGeometry Load(string name, bool crownStairBoost = false, int crownFrameRate = 30)
     {
         if (name == "hit") return HitCourseGeometry.Load();
-        var data = Read<PilotCourseGeometry>($"{name}-routes.json.gz");
+        bool boosted = name == "crown" && crownStairBoost;
+        var template = Prepared.GetOrAdd((name, boosted, boosted ? crownFrameRate : 30), static key =>
+            new(() => LoadTemplate(key.Name, key.Boost, key.FrameRate))).Value;
+        // Published asset arrays and collision BVHs are read-only. Each owner
+        // still builds its own graph/contact/timing caches.
+        return new()
+        {
+            Nodes = template.Nodes, Edges = template.Edges, Ground = template.Ground,
+            Sections = template.Sections, knight = template.knight, crownBoost = template.crownBoost,
+        };
+    }
+    private static PilotCourseGeometry LoadTemplate(string name, bool crownStairBoost, int crownFrameRate)
+    {
+        string variant = name == "crown" && crownStairBoost ? "-boost" + (crownFrameRate == 30 ? "" : crownFrameRate.ToString()) : "";
+        var data = Read<PilotCourseGeometry>($"{name}{variant}-routes.json.gz");
         data.Ground = Read<HitGround>($"{name}-ground.json.gz");
         data.Ground.PrepareCollision();
         data.knight = name == "knight";
+        if (data.knight) KnightCourseGeometry.Sections(data);
+        data.crownBoost = name == "crown" && crownStairBoost;
+        foreach (var edge in data.Edges)
+            foreach (var move in edge.Moves) _ = move.Path;
         return data;
+    }
+    internal static void Prepare(CancellationToken token)
+    {
+        foreach (string name in new[] { "hit", "knight", "ring", "crystal", "crown" })
+        {
+            token.ThrowIfCancellationRequested();
+            _ = Load(name);
+        }
+        foreach (int frameRate in new[] { 30, 60 })
+        {
+            token.ThrowIfCancellationRequested();
+            _ = Load("crown", true, frameRate);
+        }
     }
     public HitTimedRoutes Graph(float speed, bool carrying = false)
     {
@@ -121,6 +167,19 @@ internal sealed class PilotCourseGeometry
         }
         return result.ToArray();
     }
+    internal HitTimedRoutes.Edge[] EntryConnectors(PilotPose pose, float speed, int[] targets)
+    {
+        var connectors = Connectors(pose, speed).ToList();
+        if (Sections.Length > 0 && !IsKnight && HitCourseGeometry.CanWait(pose))
+        foreach (int target in targets)
+        {
+            var feet = Nodes[target].Feet;
+            if (Vector2.DistanceSquared(feet.XZ(), pose.XZ) <= .29f * .29f && Clear(pose.Feet, feet.XZ()))
+                connectors.Add(Edge(Nodes.Length, target, [Move.Walk(pose.Feet, feet)], speed));
+        }
+        return connectors.ToArray();
+    }
+
     public IEnumerable<HitTimedRoutes.Edge> Connectors(PilotPose pose, float speed)
     {
         if (CustomConnectors != null)
@@ -145,16 +204,36 @@ internal sealed class PilotCourseGeometry
                 if (knight && CrossesIce(pose.Feet, target) || !(pose.Grounded && Ground.CollisionFaces.Length > 0
                     ? Ground.ClearFromGrounded(pose.Feet, target.XZ()) : Ground.Clear(pose.XZ, target.XZ()))) continue;
                 move = Move.Walk(pose.Feet, target);
+                if (crownBoost) move.TimedPath = CrownWalkTrajectory(move.Path);
                 if (pose.Has(3694) || knight && (InArrow(pose.Feet) || InArrow(target))) move.Kind = "arrow";
             }
             yield return Edge(Nodes.Length, to, [move], speed);
         }
     }
 
+    internal static HitTimedRoutes.Point[] CrownWalkTrajectory(Vector3[] path)
+    {
+        var result = new List<HitTimedRoutes.Point> { new(path[0].XZ(), 0) };
+        double time = 0;
+        for (int i = 1; i < path.Length; ++i)
+        {
+            var a = path[i - 1]; var b = path[i];
+            if ((a.Z - CrownBoostStartZ) * (b.Z - CrownBoostStartZ) < 0)
+            {
+                var boundary = Vector3.Lerp(a, b, (CrownBoostStartZ - a.Z) / (b.Z - a.Z));
+                time += Vector2.Distance(a.XZ(), boundary.XZ()) / (a.Z <= CrownBoostStartZ ? CrownBoostSpeed : 6);
+                result.Add(new(boundary.XZ(), time)); a = boundary;
+            }
+            time += Vector2.Distance(a.XZ(), b.XZ()) / ((a.Z + b.Z) * .5f <= CrownBoostStartZ ? CrownBoostSpeed : 6);
+            result.Add(new(b.XZ(), time));
+        }
+        return result.ToArray();
+    }
+
     // EventRange 10048823. Ordinary connectors may approach the ice but must
     // not silently turn a walk into a native 5 m / 50-frame slide.
-    private static bool InIce(Vector3 p) => p.X is > -215 and < -185 && p.Z is > -204 and < -180;
-    private static bool CrossesIce(Vector3 a, Vector3 b)
+    internal static bool InIce(Vector3 p) => p.X is > -215 and < -185 && p.Z is > -204 and < -180;
+    internal static bool CrossesIce(Vector3 a, Vector3 b)
     {
         float lo = 0, hi = 1;
         bool Clip(float start, float delta, float min, float max)

@@ -15,6 +15,7 @@ public sealed partial class FallGuysPilot
     private SessionRecorder? cycleRecorder;
     private string? cycleRecordPath;
     private bool cycleActive, cycleWon, cycleEntryRequested, cycleFullEntry, terminal;
+    private bool routeExitRequested;
     private int completedCycles, wonCycles;
     private double nextTerminalProbe, nextCycleAction;
     private uint cycleZone;

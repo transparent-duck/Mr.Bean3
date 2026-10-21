@@ -19,7 +19,6 @@ public sealed class Plugin : IDalamudPlugin
     private readonly IChatGui chat;
     private readonly IMrBean3AccessGate accessGate;
     private readonly Configuration configuration = new();
-    private readonly UsageCollector? telemetry;
     private readonly LocalStatistics statistics;
     private FallGuysPilot? pilot;
     private PilotTravel? travel;
@@ -45,8 +44,6 @@ public sealed class Plugin : IDalamudPlugin
                 .Disable<ItemSourceManager>().Disable<LogMessageManager>().Disable<TargetManager>().Disable<UseActionManager>());
             omenInitialized = true;
             accessGate = MrBean3BuildProfile.CreateAccessGate(pluginInterface, pluginLog);
-            if (MrBean3BuildProfile.Capabilities.TelemetryEndpoint is { } endpoint)
-                telemetry = new UsageCollector(pluginInterface.GetPluginConfigDirectory(), endpoint, pluginLog);
             commands.AddHandler(ProductIdentity.Command, new CommandInfo(OnCommand) { ShowInHelp = false });
             pluginInterface.UiBuilder.Draw += Draw;
             pluginInterface.UiBuilder.OpenConfigUi += Open;
@@ -60,7 +57,6 @@ public sealed class Plugin : IDalamudPlugin
             pluginInterface.UiBuilder.OpenConfigUi -= Open;
             pluginInterface.UiBuilder.OpenMainUi -= Open;
             commands.RemoveHandler(ProductIdentity.Command);
-            telemetry?.Dispose();
             if (omenInitialized) DService.Uninit();
             throw;
         }
@@ -69,20 +65,14 @@ public sealed class Plugin : IDalamudPlugin
     private void Open() => open = true;
     private void OnCommand(string _, string args)
     {
-        if (args.Trim().Equals("stop", StringComparison.OrdinalIgnoreCase)) Stop("cancelled");
+        if (args.Trim().Equals("stop", StringComparison.OrdinalIgnoreCase)) Stop();
         else if (args.Trim().Equals("start", StringComparison.OrdinalIgnoreCase)) Start();
         else Open();
     }
 
-    private bool RegionAllowed() => accessGate.IsRegionRestrictionExempt ||
-        MrBean3BuildProfile.Capabilities.RequiredDataCenterId is not { } required ||
-        Service.PlayerState.IsLoaded && Service.PlayerState.CurrentWorld.IsValid &&
-        Service.PlayerState.CurrentWorld.Value.DataCenter.RowId == required;
-
     private void Start()
     {
         if (pilot != null) return;
-        if (!RegionAllowed()) { chat.PrintError("Mr.Bean3 僅在陸行鳥區生效。"); return; }
         if (!accessGate.TryAuthorize(out _)) return;
         if (Service.LocalPlayer is not { IsDead: false } || Service.ClientState.TerritoryType is not (1197 or 1165))
         { chat.PrintError("請先進入糖豆人大廳。"); return; }
@@ -94,14 +84,9 @@ public sealed class Plugin : IDalamudPlugin
             pilot = new FallGuysPilot(configuration, tracker, travel.Execute);
             statistics.BeginSession(Service.ClientState.TerritoryType == 1165);
             pilot.Observed += statistics.Observe;
-            if (telemetry != null)
-            {
-                telemetry.BeginSession(Service.ClientState.TerritoryType == 1165);
-                pilot.Observed += telemetry.Observe;
-            }
             pilot.HandleCommand(["loop", "on"]);
         }
-        catch (Exception failure) { Stop("unknown"); chat.PrintError("Mr.Bean3 無法開始：" + failure.Message); }
+        catch (Exception failure) { Stop(); chat.PrintError("Mr.Bean3 無法開始：" + failure.Message); }
     }
 
     private void Update(IFramework _)
@@ -110,19 +95,15 @@ public sealed class Plugin : IDalamudPlugin
         if (pilot == null) return;
         bool zoning = Service.Condition[ConditionFlag.BetweenAreas] || Service.Condition[ConditionFlag.BetweenAreas51];
         if (!zoning && (!Service.ClientState.IsLoggedIn || Service.PlayerState.ContentId != runningCid))
-        { Stop("disconnected"); return; }
-        if (Service.PlayerState.IsLoaded && Service.PlayerState.CurrentWorld.RowId != 0 && !RegionAllowed())
-        { Stop("cancelled"); return; }
+        { Stop(); return; }
         try
         {
             statistics.UpdateTerritory(Service.ClientState.TerritoryType, zoning);
-            telemetry?.BeforeUpdate(Service.ClientState.TerritoryType);
             pilot.Update();
             travel?.Update();
-            telemetry?.AfterUpdate(Service.ClientState.TerritoryType, zoning);
-            if (!configuration.BlundervilleAutoLoop) Stop("cancelled");
+            if (!configuration.BlundervilleAutoLoop) Stop();
         }
-        catch (Exception failure) { Stop("unknown"); Service.Log.Error(failure, "[Mr.Bean3] Pilot host stopped."); }
+        catch (Exception failure) { Stop(); Service.Log.Error(failure, "[Mr.Bean3] Pilot host stopped."); }
     }
 
     private void Draw()
@@ -131,11 +112,11 @@ public sealed class Plugin : IDalamudPlugin
         ImGui.SetNextWindowSize(new(480, 100), ImGuiCond.FirstUseEver);
         if (ImGui.Begin("你是壞孩子###Mr.Bean3", ref open, ImGuiWindowFlags.AlwaysAutoResize))
         {
-            ImGui.BeginDisabled(pilot != null || !RegionAllowed() || !accessGate.Current.IsAllowed);
+            ImGui.BeginDisabled(pilot != null || !accessGate.Current.IsAllowed);
             if (ImGui.Button("開始")) Start();
             ImGui.EndDisabled();
             ImGui.SameLine();
-            if (ImGui.Button("停止")) Stop("cancelled");
+            if (ImGui.Button("停止")) Stop();
             if (!accessGate.Current.IsAllowed)
                 ImGui.TextUnformatted(string.IsNullOrEmpty(accessGate.StartDenialNotice) ? "目前無法使用。" : accessGate.StartDenialNotice);
             ImGui.TextUnformatted($"關卡總數: {statistics.TotalRuns}");
@@ -143,17 +124,16 @@ public sealed class Plugin : IDalamudPlugin
             ImGui.TextUnformatted($"失敗: {statistics.Failures}");
             ImGui.TextUnformatted($"手動接管或中途停止: {statistics.Interrupted}");
             ImGui.TextUnformatted($"勝率: {statistics.WinRate * 100:0.0}%");
-            ImGui.TextUnformatted("作者還沒有刷完. 故此該外掛僅在[陸行鳥區]生效.");
             ImGui.TextUnformatted("要不要試試一鍵登頂妖宮");
             ImGui.SameLine();
             if (ImGui.SmallButton("打開"))
                 Dalamud.Utility.Util.OpenLink("https://github.com/transparent-duck/NewFolder3");
         }
         ImGui.End();
-        if (!open) Stop("cancelled");
+        if (!open) Stop();
     }
 
-    private void Stop(string outcome)
+    private void Stop()
     {
         statistics.Stop();
         configuration.BlundervilleEnabled = configuration.BlundervilleAutoLoop = false;
@@ -163,7 +143,6 @@ public sealed class Plugin : IDalamudPlugin
         DisposePart(oldPilot);
         DisposePart(oldTravel);
         DisposePart(oldTracker);
-        telemetry?.Finish(outcome);
     }
 
     private static void DisposePart(IDisposable? part)
@@ -181,7 +160,7 @@ public sealed class Plugin : IDalamudPlugin
         pluginInterface.UiBuilder.OpenConfigUi -= Open;
         pluginInterface.UiBuilder.OpenMainUi -= Open;
         commands.RemoveHandler(ProductIdentity.Command);
-        try { Stop("unknown"); }
-        finally { try { telemetry?.Dispose(); statistics.FlushPending(true); } finally { DService.Uninit(); } }
+        try { Stop(); }
+        finally { try { statistics.FlushPending(true); } finally { DService.Uninit(); } }
     }
 }

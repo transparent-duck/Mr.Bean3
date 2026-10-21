@@ -30,10 +30,11 @@ internal enum HazardShape
 /// <param name="CastWarning">When true, a cast start predicts its activation after the packet cast duration.</param>
 /// <param name="Quantum">Origin grid (m) that identifies one station; coarser for noisy moving sources.</param>
 /// <param name="EffectRotationOffset">Converts effect-packet facing to the cast footprint direction.</param>
+/// <param name="Pad">Metres the footprint inflates for planning checks, per mechanism.</param>
 internal sealed record HazardSpec(uint ActionId, HazardShape Shape, float Size, float Length = 0,
     double Period = 0, double Lead = 0.15, double Tail = 0.10, Vector4? Area = null,
     bool CastWarning = false, float Quantum = 0.25f, string Note = "", float ForwardMin = 0, double EndpointDwell = 0,
-    float EffectRotationOffset = 0)
+    float EffectRotationOffset = 0, float Pad = 0)
 {
     public bool Accepts(Vector2 origin) => Area is not { } a ||
         origin.X >= a.X && origin.X <= a.Y && origin.Y >= a.Z && origin.Y <= a.W;
@@ -60,6 +61,9 @@ internal sealed class HazardField
         public readonly List<(double Start, double End)> Windows = [];
         public double KnownUntil;
         public long ChangedAt;
+        // Receipt freshness is separate from the threshold for invalidating a
+        // safe route: a small clock correction can still make another lane faster.
+        public long ObservedRevision;
 
         public bool Contains(Vector2 p, float radius)
         {
@@ -138,7 +142,8 @@ internal sealed class HazardField
                 target.Endpoint != value.Endpoint || target.Rotation != value.Rotation;
             target.Spec = value.Spec; target.Origin = value.Origin; target.Endpoint = value.Endpoint;
             target.Rotation = value.Rotation; target.Extent = value.Extent; target.Period = value.Period;
-            target.ChangedAt = value.ChangedAt; target.KnownUntil = value.KnownUntil;
+            target.ChangedAt = value.ChangedAt; target.ObservedRevision = value.ObservedRevision;
+            target.KnownUntil = value.KnownUntil;
             target.Windows.Clear(); target.Windows.AddRange(value.Windows);
         }
         frozen = true; frozenStart = start; frozenEnd = end;
@@ -304,7 +309,7 @@ internal sealed class HazardField
         var result = Exposure.Clear;
         foreach (var s in stations.Values)
         {
-            if (!s.Contains(p, radius)) continue;
+            if (!s.Contains(p, s.Spec.Pad)) continue;
             var e = Overlap(s, t, t);
             if (e == Exposure.Hit) return e;
             if (e == Exposure.Unknown) result = e;

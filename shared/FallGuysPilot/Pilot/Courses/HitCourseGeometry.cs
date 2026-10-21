@@ -201,9 +201,9 @@ internal sealed class HitCourseGeometry
         }
         int offset = ReferenceEquals(graph, column) ? columnOffset : ReferenceEquals(graph, steering) ? steeringOffset : wetOffset;
         string kind = ReferenceEquals(graph, steering) ? "steering" : ReferenceEquals(graph, wet) ? "wet" : "walk";
-        Func<Vector2, Vector2, HitTimedRoutes.Point[]>? motion = pose.Motion == MotionKind.Steering
-            ? (a, b) => HitSteeringStep.Curve(a, b, pose.Raw.ArrowDirection ?? pose.Facing) : null;
-        foreach (var edge in graph.Connectors(pose.XZ, motion))
+        var connectors = ReferenceEquals(graph, steering)
+            ? HitSteeringStep.Connectors(pose) : graph.Connectors(pose.XZ);
+        foreach (var edge in connectors)
             yield return data.Edge(data.Nodes.Length, offset + edge.To, [TimedMove(edge.Path, kind)], speed);
     }
 

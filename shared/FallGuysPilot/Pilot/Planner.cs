@@ -33,9 +33,13 @@ internal sealed class PathPassage : Passage
     public Func<Vector2, Vector2>? Force { get; init; }
     public int[] JumpFrom { get; init; } = [];
     public float ArriveRadius { get; init; } = 0.35f;
+    public bool SkipStart { get; init; }
+    public Courses.HitGround? Ground { get; init; }
     private int index;
+    private Vector3? join;
     private bool launched, airborne;
     private double launchedAt;
+    internal SharedRouteProgress Progress => new() { Index = index, Join = join };
 
     public override void Simulate(Vector2 start, List<Vector2> output)
     {
@@ -54,11 +58,46 @@ internal sealed class PathPassage : Passage
         }
     }
 
-    public override void Begin(PilotContext c) { index = 0; launched = airborne = false; c.Act.ClearJump(); }
+    public override void Begin(PilotContext c)
+    {
+        var cursor = SkipStart ? new SharedRouteProgress { Index = 1 } :
+            SharedRouteProgress.Begin(Points, c.Pose.Feet, Array.IndexOf(JumpFrom, 0) >= 0, false);
+        if (Ground != null && !SkipStart && JumpFrom.Length == 0 &&
+            c.Pose.Motion == MrBean.FallGuys.MotionKind.Ordinary && c.Pose.Force == Vector2.Zero)
+        {
+            float frame = Math.Clamp((float)(c.Pose.Raw.RealFrameSeconds ?? 1d / 60), 1f / 240, .1f);
+            var checkedCursor = WalkHandoffCheck.Choose(cursor, Points, c.Pose.Feet, Ground,
+                frame, c.Pose.Raw.Walk?.AvailableTargetSpeed ?? 6, ArriveRadius);
+            if (checkedCursor.Index != cursor.Index)
+                c.Log("course-handoff-approach", new { at = c.Now, passage = Name, feet = c.Pose.Feet, origin = Points[0] });
+            cursor = checkedCursor;
+        }
+        index = cursor.Index; join = cursor.Join;
+        launched = airborne = false; c.Act.ClearJump();
+    }
 
     public override bool Follow(PilotContext c)
     {
         var pose = c.Pose; var p = pose.XZ;
+        if (JumpFrom.Length == 0)
+        {
+            var cursor = Progress;
+            bool moving = SharedRouteProgress.WalkTarget(Points, p, ref cursor, ArriveRadius, out var direction);
+            index = cursor.Index; join = cursor.Join;
+            if (!moving) return true;
+            if (pose.Force != Vector2.Zero) c.Act.WalkNet(direction, pose.Force); else c.Act.Walk(direction);
+            return false;
+        }
+        if (join is { } targetJoin)
+        {
+            if (Vector2.DistanceSquared(p, targetJoin.XZ()) > .12f * .12f)
+            {
+                var direction = Geo.Toward(p, targetJoin.XZ());
+                if (pose.Force != Vector2.Zero) c.Act.WalkNet(direction, pose.Force); else c.Act.Walk(direction);
+                return false;
+            }
+            join = null;
+        }
         if (launched)
         {
             var dir = JumpDirection(index - 1);
@@ -104,7 +143,8 @@ internal sealed class PathPassage : Passage
     }
 
     public override Vector2? Aim(PilotContext c)
-        => index < Points.Length ? Geo.Toward(c.Pose.XZ, Points[index].XZ()) : null;
+        => join is { } target ? Geo.Toward(c.Pose.XZ, target.XZ()) :
+            index < Points.Length ? Geo.Toward(c.Pose.XZ, Points[index].XZ()) : null;
 }
 
 /// <summary>
@@ -223,7 +263,7 @@ internal static class Planner
         }
         field.Prepare(now, maxDelay + longest + 1);
         var waiting = new List<HazardField.Station>();
-        foreach (var s in field.Stations) if (s.Contains(start, radius)) waiting.Add(s);
+        foreach (var s in field.Stations) if (s.Contains(start, s.Spec.Pad)) waiting.Add(s);
 
         for (double delay = 0; delay <= maxDelay + 1e-9; delay += delayStep)
         {
@@ -269,7 +309,7 @@ internal static class Planner
             int first = -1;
             for (int i = 0; i <= path.Count; ++i)
             {
-                bool inside = i < path.Count && station.Contains(path[i], radius);
+                bool inside = i < path.Count && station.Contains(path[i], station.Spec.Pad);
                 if (inside && first < 0) first = i;
                 else if (!inside && first >= 0)
                 {

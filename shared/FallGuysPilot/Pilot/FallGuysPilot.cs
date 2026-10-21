@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 using MrBean.FallGuys;
 using MrBean.FallGuys.Mechanics;
@@ -43,9 +44,11 @@ public sealed partial class FallGuysPilot : IDisposable
     private string issue = "Idle.";
     private double nextProbe, nextFrame, beganAt;
     private int localHits;
+    private bool activeCrownStairBoost;
     private Task statusWrite = Task.CompletedTask;
     private Task planningTimesWrite = Task.CompletedTask;
     private readonly RoutePlanningTimes planningTimes = new();
+    private readonly CancellationTokenSource preparationCancellation = new();
 
     public FallGuysPilot(Configuration configuration, ActionTracker tracker, Action<string> travel)
     {
@@ -56,6 +59,16 @@ public sealed partial class FallGuysPilot : IDisposable
         string timingPath = Path.Combine(directory, "planning-times-v1.json");
         try { if (File.Exists(timingPath)) planningTimes = RoutePlanningTimes.Read(File.ReadAllText(timingPath)); }
         catch (Exception error) { Service.Log.Warning("[FallGuysPilot] Could not read local planning times: " + error.Message); }
+        if (configuration.BlundervilleEnabled)
+        {
+            var preparationToken = preparationCancellation.Token;
+            _ = Task.Run(() =>
+            {
+                try { PilotCourseGeometry.Prepare(preparationToken); }
+                catch (OperationCanceledException) when (preparationToken.IsCancellationRequested) { }
+                catch (Exception error) { Service.Log.Warning("[FallGuysPilot] Could not prepare course assets: " + error.Message); }
+            });
+        }
     }
 
     public void Update()
@@ -80,7 +93,7 @@ public sealed partial class FallGuysPilot : IDisposable
         {
             if (course != null) EndScene();
             if (Service.ClientState.TerritoryType != TerritoryDuty)
-            { eligibilityLost = false; interruptedCourse = null; }
+            { eligibilityLost = false; interruptedCourse = null; routeExitRequested = false; }
             return;
         }
         if (now >= nextProbe)
@@ -106,7 +119,7 @@ public sealed partial class FallGuysPilot : IDisposable
         }
         actuator.Update(now);
 
-        bool wanted = configuration.BlundervilleEnabled && script != null && !eligibilityLost && !qualified && !yielded && !player.IsDead;
+        bool wanted = configuration.BlundervilleEnabled && script != null && !eligibilityLost && !qualified && !yielded && !routeExitRequested && !player.IsDead;
         if (actuator.CancelledByUser && controlling)
         {
             yielded = true; wanted = false;
@@ -119,8 +132,18 @@ public sealed partial class FallGuysPilot : IDisposable
             controlling = true;
             engine ??= new PilotEngine(script!, pose, context);
             ObserveRingSources(now);
-            if (!released) actuator.Hold();
-            else engine.Tick(context);
+            if (!released) { engine.PrepareStart(context); actuator.Hold(); }
+            else
+            {
+                engine.Tick(context);
+                if (engine.Current is CourseRouteStep route && route.NoRouteExpired(context))
+                {
+                    routeExitRequested = true; terminal = true;
+                    Write("no-route-exit", new { at = now, course, seconds = 10, feet = pose.Feet });
+                    actuator.Release(); controlling = false;
+                    travel("leave"); nextCycleAction = now + 5;
+                }
+            }
             issue = $"{engine.Current?.Name ?? "end"} {(engine.Current as GateStep)?.Status}";
         }
         else if (controlling)
@@ -165,8 +188,9 @@ public sealed partial class FallGuysPilot : IDisposable
         course = scene; entityId = entity; objectId = obj; beganAt = PilotPose.Now;
         ++sceneSequence;
         released = sawLock = qualified = controlling = yielded = false; rank = null; localHits = 0;
-        script = CourseScripts.Create(scene);
-        actuator = new Actuator(); // installs hooks while the start lock holds the actor
+        activeCrownStairBoost = scene == CourseId.Crown && configuration.FallGuysCrownStairBoost;
+        script = CourseScripts.Create(scene, activeCrownStairBoost);
+        actuator = new Actuator(activeCrownStairBoost); // installs hooks while the start lock holds the actor
         water.UseObservation();
         if (scene == CourseId.Hit) _ = water.Cache;
         context = new PilotContext { Act = actuator, Hazards = new HazardField(script?.Hazards ?? []), Log = Write, Water = water,
@@ -183,6 +207,7 @@ public sealed partial class FallGuysPilot : IDisposable
         recorder = new SessionRecorder(recordPath, Json);
         issue = script == null ? $"{scene}: no script yet; recording only." : eligibilityLost ? "Spectating (not qualified last round)." : "Waiting for start.";
         Write("start", new { course = scene, at = PilotPose.Now, scripted = script != null, eligibilityLost, enabled = configuration.BlundervilleEnabled,
+            crownStairBoost = activeCrownStairBoost,
             assembly = typeof(FallGuysPilot).Assembly.ManifestModule.ModuleVersionId });
         if (checkpoint) MarkReleased(beganAt);
     }
@@ -203,6 +228,11 @@ public sealed partial class FallGuysPilot : IDisposable
             context!.Hazards.Observe(observation);
             switch (observation)
             {
+                case MechanicControlObservation { Category: 109, Arg1: 0x8004002B, Arg2: 2, IsRecorded: false } countdown
+                    when course == CourseId.Crown && countdown.EntityId == entityId && !released:
+                    context.ExpectedReleaseAt = countdown.Seconds + 3.03;
+                    Write("countdown", new { at = countdown.Seconds, expectedRelease = context.ExpectedReleaseAt });
+                    break;
                 case MechanicEffectObservation effect when effect.Targets.Any(t => t.ObjectId == objectId && t.Effects.Any(HazardField.IsHit)):
                     ++localHits;
                     context!.LastHitAt = effect.Seconds;
@@ -343,6 +373,7 @@ public sealed partial class FallGuysPilot : IDisposable
         {
             enabled = configuration.BlundervilleEnabled, zone = Service.ClientState.TerritoryType, position = Service.LocalPlayer?.Position,
             loop = configuration.BlundervilleAutoLoop, cycleActive, cycleWon, completedCycles, wonCycles, cycleRecordPath,
+            crownStairBoost = configuration.FallGuysCrownStairBoost, activeCrownStairBoost,
             course, scripted = script != null, released, qualified, rank, controlling, yielded, eligibilityLost, localHits,
             step = engine?.Current?.Name, stepIndex = engine?.Index, steps = engine?.Count, issue, recordPath,
             packetFaults = packets.Faults, packetDropped = packets.Dropped, recordDropped = recorder?.Dropped ?? 0,
@@ -371,6 +402,9 @@ public sealed partial class FallGuysPilot : IDisposable
         if (ImGui.Checkbox("啟用自動導航", ref enabled)) HandleCommand([enabled ? "start" : "stop"]);
         bool loop = configuration.BlundervilleAutoLoop;
         if (ImGui.Checkbox("自動報名、退本並繼續挑戰", ref loop)) SetLoop(loop, "settings");
+        bool crownBoost = configuration.FallGuysCrownStairBoost;
+        if (ImGui.Checkbox("皇冠山最後三階加速 10%", ref crownBoost))
+        { configuration.FallGuysCrownStairBoost = crownBoost; configuration.Save(); routeMap = -1; }
         if (ImGui.Button("立即停止")) HandleCommand(["stop"]);
         ImGui.TextUnformatted($"關卡: {course?.ToString() ?? "-"}  {(qualified ? $"已晉級 #{rank}" : "")}");
         ImGui.TextWrapped(issue);
@@ -383,6 +417,8 @@ public sealed partial class FallGuysPilot : IDisposable
 
     public void Dispose()
     {
+        preparationCancellation.Cancel();
+        preparationCancellation.Dispose();
         if (course != null) EndScene();
         CloseCycle();
         packets.Dispose();

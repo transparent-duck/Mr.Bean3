@@ -30,10 +30,9 @@ internal sealed class RingGoalSelection
         Circle(34805, new(211.3137f, -113.6863f), 6);
 
         // Walk completion accepts feet within 0.12 m of the waypoint.
-        const float clearance = PilotEngine.BodyRadius + .12f;
         candidates = Enumerable.Range(0, data.Nodes.Length)
             .Where(i => data.Nodes[i].CanWait &&
-                !footprints.Stations.Any(s => s.Contains(data.Nodes[i].Feet.XZ(), clearance)))
+                !footprints.Stations.Any(s => s.Contains(data.Nodes[i].Feet.XZ(), s.Spec.Pad + .12f)))
             .Select(i => (i, Geo.Heading(data.Nodes[i].Feet.XZ() - new Vector2(200, -125))))
             .ToArray();
 

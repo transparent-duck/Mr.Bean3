@@ -9,13 +9,13 @@ namespace MrBean.Modules.FallGuysPilot.Courses;
 /// </summary>
 internal static class CourseScripts
 {
-    public static CourseScript? Create(CourseId course) => course switch
+    public static CourseScript? Create(CourseId course, bool crownStairBoost = false) => course switch
     {
         CourseId.Hit => new HitCourse(),
         CourseId.Knight => new KnightCourse(),
         CourseId.Ring => new RingCourse(),
         CourseId.Crystal => new CrystalCourse(),
-        CourseId.Crown => new CrownCourse(),
+        CourseId.Crown => new CrownCourse(crownStairBoost),
         _ => null,
     };
 }

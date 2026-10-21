@@ -30,12 +30,6 @@ internal interface IMrBean3AccessGate
     /// </summary>
     string StartDenialNotice { get; }
 
-    /// <summary>
-    /// True when this gate exempts the current context from the build-profile
-    /// region restriction. Public builds always report false.
-    /// </summary>
-    bool IsRegionRestrictionExempt { get; }
-
     bool TryAuthorize(out string error);
 }
 
@@ -44,8 +38,6 @@ internal sealed class MrBean3AllowAllAccessGate : IMrBean3AccessGate
     public MrBean3AccessDecision Current => MrBean3AccessDecision.Allowed();
 
     public string StartDenialNotice => string.Empty;
-
-    public bool IsRegionRestrictionExempt => false;
 
     public bool TryAuthorize(out string error)
     {
