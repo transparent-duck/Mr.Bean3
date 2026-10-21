@@ -4,7 +4,7 @@
   <PropertyGroup>
     <AssemblyName>Mr.Bean3</AssemblyName>
     <RootNamespace>Mr.Bean3</RootNamespace>
-    <Version>7.55.10</Version>
+    <Version>7.55.11</Version>
     <Description>Standalone Fall Guys pilot host.</Description>
     <IsPackable>false</IsPackable>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -29,8 +29,9 @@
     <ProjectReference Include="shared\FallGuysPilot\Runtime\FallGuys.Runtime.csproj" />
     <ProjectReference Include="third_party\OmenTools\OmenTools.csproj" />
     <EmbeddedResource Include="shared\FallGuysPilot\Assets\hit-water.bin.gz" LogicalName="MrBean.Pilot.HitWater" WithCulture="false" />
+    <EmbeddedResource Include="shared\FallGuysPilot\Assets\hit-steering.bin.gz" LogicalName="MrBean.Pilot.HitSteering" WithCulture="false" />
     <EmbeddedResource Include="shared\FallGuysPilot\Assets\hit-ground.json.gz" LogicalName="MrBean.Pilot.HitGround" WithCulture="false" />
-    <EmbeddedResource Include="shared\FallGuysPilot\Assets\*.gz" Exclude="shared\FallGuysPilot\Assets\hit-water.bin.gz;shared\FallGuysPilot\Assets\hit-ground.json.gz" LogicalName="MrBean.Pilot.%(Filename)%(Extension)" WithCulture="false" />
+    <EmbeddedResource Include="shared\FallGuysPilot\Assets\*.gz" Exclude="shared\FallGuysPilot\Assets\hit-water.bin.gz;shared\FallGuysPilot\Assets\hit-steering.bin.gz;shared\FallGuysPilot\Assets\hit-ground.json.gz" LogicalName="MrBean.Pilot.%(Filename)%(Extension)" WithCulture="false" />
     <EmbeddedResource Include="shared\FallGuysPilot\snapshot.lock.json" LogicalName="MrBean3.PilotSnapshot" />
   </ItemGroup>
   <ItemGroup>
